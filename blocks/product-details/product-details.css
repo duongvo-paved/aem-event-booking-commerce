@@ -252,14 +252,14 @@
   width: 3.6rem;
 }
 
-.booking-stepper__btn:hover:not(:disabled) {
-  background-color: var(--color-neutral-200);
-  border-color: var(--color-brand-500);
-}
-
 .booking-stepper__btn:disabled {
   cursor: not-allowed;
   opacity: 0.35;
+}
+
+.booking-stepper__btn:hover:not(:disabled) {
+  background-color: var(--color-neutral-200);
+  border-color: var(--color-brand-500);
 }
 
 .booking-stepper__value {

@@ -21,6 +21,31 @@ export default function initEventBooking(container, product, labels, onSelection
   let selectedSession = null;
   let ticketCount = 1;
 
+  // ── Public interface (defined first so stepper/event callbacks can reference them) ──
+  const getSelection = () => ({
+    bookingType: BOOKING_TYPE.EVENT,
+    sessionId: selectedSession?.slotId ?? null,
+    sessionLabel: selectedSession
+      ? formatBookingDateTime(
+        selectedSession.date,
+        selectedSession.startTime,
+        selectedSession.endTime,
+      )
+      : null,
+    sessionDate: selectedSession?.date ?? null,
+    ticketCount,
+    quantity: ticketCount,
+  });
+
+  const isValid = () => !!(
+    selectedSession?.isAvailable
+    && selectedSession.availableCapacity > 0
+    && ticketCount >= 1
+    && ticketCount <= (selectedSession.availableCapacity ?? Infinity)
+  );
+
+  const notify = () => onSelectionChange(getSelection(), isValid());
+
   // ── Panel root ────────────────────────────────────────────────────────────
   const panel = document.createElement('div');
   panel.className = 'booking-panel booking-panel--event';
@@ -60,9 +85,7 @@ export default function initEventBooking(container, product, labels, onSelection
 
   container.appendChild(panel);
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  const notify = () => onSelectionChange(getSelection(), isValid());
-
+  // ── Session rendering ──────────────────────────────────────────────────────
   const renderSessions = (sessions) => {
     sessionList.innerHTML = '';
 
@@ -156,29 +179,6 @@ export default function initEventBooking(container, product, labels, onSelection
     const sessions = await fetchBookingSlots(product.sku, BOOKING_TYPE.EVENT);
     renderSessions(sessions);
   })();
-
-  // ── Public interface ──────────────────────────────────────────────────────
-  const getSelection = () => ({
-    bookingType: BOOKING_TYPE.EVENT,
-    sessionId: selectedSession?.slotId ?? null,
-    sessionLabel: selectedSession
-      ? formatBookingDateTime(
-        selectedSession.date,
-        selectedSession.startTime,
-        selectedSession.endTime,
-      )
-      : null,
-    sessionDate: selectedSession?.date ?? null,
-    ticketCount,
-    quantity: ticketCount,
-  });
-
-  const isValid = () => !!(
-    selectedSession?.isAvailable
-    && selectedSession.availableCapacity > 0
-    && ticketCount >= 1
-    && ticketCount <= (selectedSession.availableCapacity ?? Infinity)
-  );
 
   return { getSelection, isValid };
 }

@@ -21,6 +21,28 @@ export default function initAppointmentBooking(container, product, labels, onSel
   let selectedSlot = null;
   let attendeeCount = 1;
 
+  // ── Public interface (defined first so stepper/event callbacks can reference them) ──
+  const getSelection = () => ({
+    bookingType: BOOKING_TYPE.APPOINTMENT,
+    date: selectedDate || null,
+    slotId: selectedSlot?.slotId ?? null,
+    slotLabel: selectedSlot
+      ? (selectedSlot.label ?? `${selectedSlot.startTime} – ${selectedSlot.endTime}`)
+      : null,
+    attendeeCount,
+    quantity: attendeeCount,
+  });
+
+  const isValid = () => !!(
+    selectedDate
+    && selectedSlot?.isAvailable
+    && selectedSlot.availableCapacity > 0
+    && attendeeCount >= 1
+    && attendeeCount <= (selectedSlot.availableCapacity ?? Infinity)
+  );
+
+  const notify = () => onSelectionChange(getSelection(), isValid());
+
   // ── Panel root ────────────────────────────────────────────────────────────
   const panel = document.createElement('div');
   panel.className = 'booking-panel booking-panel--appointment';
@@ -33,7 +55,8 @@ export default function initAppointmentBooking(container, product, labels, onSel
   const dateInput = document.createElement('input');
   dateInput.type = 'date';
   dateInput.className = 'booking-panel__date-input';
-  dateInput.min = new Date().toISOString().split('T')[0];
+  const [today] = new Date().toISOString().split('T');
+  dateInput.min = today;
   dateInput.setAttribute('aria-label', labels.Booking?.SelectDate ?? 'Select a date');
   dateSection.appendChild(dateInput);
   panel.appendChild(dateSection);
@@ -72,9 +95,7 @@ export default function initAppointmentBooking(container, product, labels, onSel
 
   container.appendChild(panel);
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  const notify = () => onSelectionChange(getSelection(), isValid());
-
+  // ── Slot loading ──────────────────────────────────────────────────────────
   const loadSlots = async (date) => {
     slotSection.hidden = false;
     attendeeSection.hidden = true;
@@ -106,26 +127,6 @@ export default function initAppointmentBooking(container, product, labels, onSel
     if (selectedDate) loadSlots(selectedDate);
     notify();
   });
-
-  // ── Public interface ──────────────────────────────────────────────────────
-  const getSelection = () => ({
-    bookingType: BOOKING_TYPE.APPOINTMENT,
-    date: selectedDate || null,
-    slotId: selectedSlot?.slotId ?? null,
-    slotLabel: selectedSlot
-      ? (selectedSlot.label ?? `${selectedSlot.startTime} – ${selectedSlot.endTime}`)
-      : null,
-    attendeeCount,
-    quantity: attendeeCount,
-  });
-
-  const isValid = () => !!(
-    selectedDate
-    && selectedSlot?.isAvailable
-    && selectedSlot.availableCapacity > 0
-    && attendeeCount >= 1
-    && attendeeCount <= (selectedSlot.availableCapacity ?? Infinity)
-  );
 
   return { getSelection, isValid };
 }

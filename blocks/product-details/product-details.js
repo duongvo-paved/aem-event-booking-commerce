@@ -278,9 +278,10 @@ export default async function decorate(block) {
     disabled: !!bookingType,
     icon: h(Icon, { source: bookingType ? 'Date' : 'Cart' }),
     onClick: async () => {
-      const buttonActionText = isUpdateMode
-        ? labels.Global?.UpdatingInCart
-        : (bookingType ? (labels.Booking?.AddingToCart ?? 'Processing…') : labels.Global?.AddingToCart);
+      const addingText = bookingType
+        ? (labels.Booking?.AddingToCart ?? 'Processing…')
+        : labels.Global?.AddingToCart;
+      const buttonActionText = isUpdateMode ? labels.Global?.UpdatingInCart : addingText;
       try {
         addToCart.setProps((prev) => ({
           ...prev,

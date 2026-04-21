@@ -21,7 +21,26 @@ export default function initVenueBooking(container, product, labels, onSelection
   let capacityNeeded = 1;
   let venueAvailable = null; // null = not checked, true/false = checked result
 
-  const today = new Date().toISOString().split('T')[0];
+  // ── Public interface (defined first so stepper/event callbacks can reference them) ──
+  const getSelection = () => ({
+    bookingType: BOOKING_TYPE.VENUE,
+    startDate: startDate || null,
+    endDate: endDate || null,
+    capacityNeeded,
+    quantity: capacityNeeded,
+  });
+
+  const isValid = () => !!(
+    startDate
+    && endDate
+    && endDate > startDate
+    && capacityNeeded >= 1
+    && venueAvailable === true
+  );
+
+  const notify = () => onSelectionChange(getSelection(), isValid());
+
+  const [today] = new Date().toISOString().split('T');
 
   // ── Panel root ────────────────────────────────────────────────────────────
   const panel = document.createElement('div');
@@ -87,8 +106,6 @@ export default function initVenueBooking(container, product, labels, onSelection
   container.appendChild(panel);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  const notify = () => onSelectionChange(getSelection(), isValid());
-
   const showAvailFeedback = (available) => {
     availFeedback.innerHTML = '';
     if (available === null) return;
@@ -134,7 +151,8 @@ export default function initVenueBooking(container, product, labels, onSelection
       // Advance checkout min by one day
       const nextDay = new Date(startDate);
       nextDay.setDate(nextDay.getDate() + 1);
-      checkoutInput.min = nextDay.toISOString().split('T')[0];
+      const [minDate] = nextDay.toISOString().split('T');
+      checkoutInput.min = minDate;
       checkoutInput.disabled = false;
       checkoutInput.value = '';
     } else {
@@ -150,23 +168,6 @@ export default function initVenueBooking(container, product, labels, onSelection
     if (startDate && endDate) checkAvailability();
     notify();
   });
-
-  // ── Public interface ──────────────────────────────────────────────────────
-  const getSelection = () => ({
-    bookingType: BOOKING_TYPE.VENUE,
-    startDate: startDate || null,
-    endDate: endDate || null,
-    capacityNeeded,
-    quantity: capacityNeeded,
-  });
-
-  const isValid = () => !!(
-    startDate
-    && endDate
-    && endDate > startDate
-    && capacityNeeded >= 1
-    && venueAvailable === true
-  );
 
   return { getSelection, isValid };
 }
