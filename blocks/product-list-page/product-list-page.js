@@ -18,10 +18,133 @@ import { events } from '@dropins/tools/event-bus.js';
 import { readBlockConfig } from '../../scripts/aem.js';
 import { fetchPlaceholders, getProductLink } from '../../scripts/commerce.js';
 import { getSearchStateFromUrl, applySearchStateToUrl } from './search-url.js';
+import { BOOKING_TYPE, formatBookingDateTime } from '../../scripts/booking.js';
 
 // Initializers
 import '../../scripts/initializers/search.js';
 import '../../scripts/initializers/wishlist.js';
+
+/**
+ * Reads a named attribute from the product's attributes array.
+ * @param {Object} product
+ * @param {string} name - attribute name (e.g. 'booking_type')
+ * @returns {string|null}
+ */
+function getProductAttribute(product, name) {
+  return product?.attributes?.find((a) => a.name === name)?.value ?? null;
+}
+
+/**
+ * Returns true when the product carries a booking_type attribute,
+ * meaning it is a bookable product.
+ * @param {Object} product
+ * @returns {boolean}
+ */
+function isBookingProduct(product) {
+  return !!getProductAttribute(product, 'booking_type');
+}
+
+/**
+ * Builds the human-readable label for a booking type badge.
+ * @param {string} type
+ * @param {Object} labels - placeholders
+ * @returns {string}
+ */
+function getBookingTypeLabel(type, labels) {
+  const map = {
+    [BOOKING_TYPE.APPOINTMENT]: labels.Booking?.TypeAppointment ?? 'Appointment',
+    [BOOKING_TYPE.EVENT]: labels.Booking?.TypeEvent ?? 'Event',
+    [BOOKING_TYPE.VENUE]: labels.Booking?.TypeVenue ?? 'Venue',
+  };
+  return map[type] ?? type;
+}
+
+/**
+ * Creates the event metadata DOM element injected below the product name.
+ * Shows: booking-type badge, date/time, location, availability.
+ * @param {Object} product
+ * @param {Object} labels
+ * @returns {HTMLElement}
+ */
+function createEventMetaElement(product, labels) {
+  const bookingType = getProductAttribute(product, 'booking_type');
+  const eventDate = getProductAttribute(product, 'event_date');
+  const eventEndDate = getProductAttribute(product, 'event_end_date');
+  const eventStartTime = getProductAttribute(product, 'event_start_time');
+  const eventEndTime = getProductAttribute(product, 'event_end_time');
+  const eventLocation = getProductAttribute(product, 'event_location');
+  const eventCapacity = getProductAttribute(product, 'event_capacity');
+  const eventAvailableCapacity = getProductAttribute(product, 'event_available_capacity');
+
+  const meta = document.createElement('div');
+  meta.className = 'event-meta';
+  meta.dataset.bookingType = bookingType;
+
+  // Booking type badge
+  const badge = document.createElement('span');
+  badge.className = `event-meta__badge event-meta__badge--${bookingType}`;
+  badge.textContent = getBookingTypeLabel(bookingType, labels);
+  meta.appendChild(badge);
+
+  // Date / time
+  if (eventDate) {
+    const dateEl = document.createElement('div');
+    dateEl.className = 'event-meta__date';
+
+    const dateIcon = document.createElement('span');
+    dateIcon.className = 'event-meta__icon event-meta__icon--calendar';
+    dateIcon.setAttribute('aria-hidden', 'true');
+    dateEl.appendChild(dateIcon);
+
+    const dateText = document.createElement('span');
+    const isVenue = bookingType === BOOKING_TYPE.VENUE;
+    if (isVenue && eventEndDate) {
+      dateText.textContent = `${formatBookingDateTime(eventDate)} – ${formatBookingDateTime(eventEndDate)}`;
+    } else {
+      dateText.textContent = formatBookingDateTime(eventDate, eventStartTime, eventEndTime);
+    }
+    dateEl.appendChild(dateText);
+    meta.appendChild(dateEl);
+  }
+
+  // Location
+  if (eventLocation) {
+    const locEl = document.createElement('div');
+    locEl.className = 'event-meta__location';
+
+    const locIcon = document.createElement('span');
+    locIcon.className = 'event-meta__icon event-meta__icon--location';
+    locIcon.setAttribute('aria-hidden', 'true');
+    locEl.appendChild(locIcon);
+
+    const locText = document.createElement('span');
+    locText.textContent = eventLocation;
+    locEl.appendChild(locText);
+    meta.appendChild(locEl);
+  }
+
+  // Availability indicator
+  if (eventCapacity !== null && eventAvailableCapacity !== null) {
+    const available = parseInt(eventAvailableCapacity, 10);
+    const total = parseInt(eventCapacity, 10);
+    const availEl = document.createElement('div');
+    availEl.className = 'event-meta__availability';
+
+    if (available <= 0) {
+      availEl.classList.add('event-meta__availability--sold-out');
+      availEl.textContent = labels.Booking?.SoldOut ?? 'Sold out';
+    } else if (available <= Math.ceil(total * 0.1)) {
+      availEl.classList.add('event-meta__availability--low');
+      availEl.textContent = (labels.Booking?.SpotsLeft ?? '{n} spots left').replace('{n}', available);
+    } else {
+      availEl.classList.add('event-meta__availability--available');
+      availEl.textContent = labels.Booking?.Available ?? 'Available';
+    }
+    meta.appendChild(availEl);
+  }
+
+  return meta;
+}
 
 export default async function decorate(block) {
   const labels = await fetchPlaceholders();
@@ -99,11 +222,14 @@ export default async function decorate(block) {
   }
 
   const getAddToCartButton = (product) => {
-    if (product.typename === 'ComplexProductView') {
+    // Booking products always link to PDP for configuration
+    if (isBookingProduct(product) || product.typename === 'ComplexProductView') {
       const button = document.createElement('div');
       UI.render(Button, {
-        children: labels.Global?.AddProductToCart,
-        icon: Icon({ source: 'Cart' }),
+        children: isBookingProduct(product)
+          ? (labels.Booking?.BookNow ?? 'Book Now')
+          : labels.Global?.AddProductToCart,
+        icon: Icon({ source: isBookingProduct(product) ? 'Date' : 'Cart' }),
         href: getProductLink(product.urlKey, product.sku),
         variant: 'primary',
       })(button);
@@ -162,21 +288,31 @@ export default async function decorate(block) {
             },
           });
         },
+        ProductName: (ctx) => {
+          const { product } = ctx;
+          if (!isBookingProduct(product)) return;
+          const metaEl = createEventMetaElement(product, labels);
+          ctx.appendSibling(metaEl);
+        },
         ProductActions: (ctx) => {
           const actionsWrapper = document.createElement('div');
           actionsWrapper.className = 'product-discovery-product-actions';
-          // Add to Cart Button
+          // Add to Cart / Book Now Button
           const addToCartBtn = getAddToCartButton(ctx.product);
           addToCartBtn.className = 'product-discovery-product-actions__add-to-cart';
-          // Wishlist Button
-          const $wishlistToggle = document.createElement('div');
-          $wishlistToggle.classList.add('product-discovery-product-actions__wishlist-toggle');
-          wishlistRender.render(WishlistToggle, {
-            product: ctx.product,
-            variant: 'tertiary',
-          })($wishlistToggle);
-          actionsWrapper.appendChild(addToCartBtn);
-          actionsWrapper.appendChild($wishlistToggle);
+          // Wishlist Button (only for non-booking products)
+          if (!isBookingProduct(ctx.product)) {
+            const $wishlistToggle = document.createElement('div');
+            $wishlistToggle.classList.add('product-discovery-product-actions__wishlist-toggle');
+            wishlistRender.render(WishlistToggle, {
+              product: ctx.product,
+              variant: 'tertiary',
+            })($wishlistToggle);
+            actionsWrapper.appendChild(addToCartBtn);
+            actionsWrapper.appendChild($wishlistToggle);
+          } else {
+            actionsWrapper.appendChild(addToCartBtn);
+          }
           ctx.replaceWith(actionsWrapper);
         },
       },

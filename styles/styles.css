@@ -128,6 +128,27 @@
   --type-fixed-font-family: adobe-clean, "Roboto Mono", menlo, consolas, "Liberation Mono", monospace, system-ui, sans-serif;
   --background-color: var(--color-neutral-50);
   --nav-height: 6.4rem;
+
+  /* Booking UI tokens */
+  --booking-color-appointment: #4a7fcb;
+  --booking-color-appointment-bg: #eef4fd;
+  --booking-color-event: #7b5ea7;
+  --booking-color-event-bg: #f3eefb;
+  --booking-color-venue: #2e8c6e;
+  --booking-color-venue-bg: #eaf6f2;
+  --booking-color-available: var(--color-positive-800);
+  --booking-color-available-bg: var(--color-positive-200);
+  --booking-color-unavailable: var(--color-neutral-500);
+  --booking-color-unavailable-bg: var(--color-neutral-200);
+  --booking-color-sold-out: var(--color-alert-800);
+  --booking-color-sold-out-bg: var(--color-alert-200);
+  --booking-slot-border-radius: var(--shape-border-radius-2);
+  --booking-badge-border-radius: var(--shape-border-radius-3);
+  --booking-slot-border: var(--shape-border-width-1) solid var(--color-neutral-300);
+  --booking-slot-border-selected: var(--shape-border-width-2) solid var(--color-brand-500);
+  --booking-slot-gap: var(--spacing-xsmall);
+  --booking-panel-gap: var(--spacing-small);
+  --booking-card-gap: var(--spacing-small);
 }
 
 /* fallback font */

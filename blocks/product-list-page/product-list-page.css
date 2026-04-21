@@ -97,6 +97,85 @@
     display: none;
 }
 
+/* Event Metadata */
+
+.event-meta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--booking-slot-gap);
+    margin-block: var(--spacing-xsmall);
+}
+
+.event-meta__badge {
+    align-self: flex-start;
+    border-radius: var(--booking-badge-border-radius);
+    font: var(--type-details-caption-1-font);
+    letter-spacing: var(--type-details-caption-1-letter-spacing);
+    padding: 2px var(--spacing-xsmall);
+    text-transform: uppercase;
+}
+
+.event-meta__badge--appointment {
+    background-color: var(--booking-color-appointment-bg);
+    color: var(--booking-color-appointment);
+}
+
+.event-meta__badge--event {
+    background-color: var(--booking-color-event-bg);
+    color: var(--booking-color-event);
+}
+
+.event-meta__badge--venue {
+    background-color: var(--booking-color-venue-bg);
+    color: var(--booking-color-venue);
+}
+
+.event-meta__date,
+.event-meta__location {
+    align-items: center;
+    color: var(--color-neutral-700);
+    display: flex;
+    font: var(--type-body-2-default-font);
+    gap: var(--spacing-xxsmall);
+    letter-spacing: var(--type-body-2-default-letter-spacing);
+}
+
+/* Calendar and location icons via CSS content */
+.event-meta__icon--calendar::before {
+    content: "📅";
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.event-meta__icon--location::before {
+    content: "📍";
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.event-meta__availability {
+    border-radius: var(--shape-border-radius-1);
+    font: var(--type-details-caption-1-font);
+    letter-spacing: var(--type-details-caption-1-letter-spacing);
+    padding: 2px var(--spacing-xxsmall);
+    width: fit-content;
+}
+
+.event-meta__availability--available {
+    background-color: var(--booking-color-available-bg);
+    color: var(--booking-color-available);
+}
+
+.event-meta__availability--low {
+    background-color: var(--booking-color-sold-out-bg);
+    color: var(--booking-color-sold-out);
+}
+
+.event-meta__availability--sold-out {
+    background-color: var(--booking-color-unavailable-bg);
+    color: var(--booking-color-unavailable);
+}
+
 /* Media Queries */
 @media only screen and (min-width: 768px) {
     .block.product-list-page .search__wrapper {

@@ -114,4 +114,245 @@
   .product-details__quantity {
     grid-column: 1 / span 2;
   }
+
+  .product-details__booking {
+    grid-column: 1 / span 4;
+  }
+}
+
+/* ── Booking Panel ──────────────────────────────────────────────────────── */
+
+.booking-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--booking-panel-gap);
+}
+
+.booking-panel__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--booking-slot-gap);
+}
+
+.booking-panel__section-label {
+  color: var(--color-neutral-800);
+  font: var(--type-body-2-strong-font);
+  letter-spacing: var(--type-body-2-strong-letter-spacing);
+  margin: 0;
+}
+
+.booking-panel__date-input {
+  border: var(--booking-slot-border);
+  border-radius: var(--booking-slot-border-radius);
+  color: var(--color-neutral-800);
+  font: var(--type-body-1-default-font);
+  max-width: 18rem;
+  padding: var(--spacing-xsmall) var(--spacing-small);
+}
+
+.booking-panel__date-input:focus {
+  border-color: var(--color-brand-500);
+  outline: none;
+}
+
+.booking-panel__empty {
+  color: var(--color-neutral-600);
+  font: var(--type-body-2-default-font);
+  letter-spacing: var(--type-body-2-default-letter-spacing);
+  margin: 0;
+}
+
+/* ── Slot Grid ──────────────────────────────────────────────────────────── */
+
+.booking-slots-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--booking-slot-gap);
+}
+
+.booking-slot-card {
+  align-items: center;
+  background: var(--color-neutral-50);
+  border: var(--booking-slot-border);
+  border-radius: var(--booking-slot-border-radius);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 9rem;
+  padding: var(--spacing-xsmall) var(--spacing-small);
+  text-align: center;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.booking-slot-card:hover:not(:disabled) {
+  border-color: var(--color-brand-500);
+}
+
+.booking-slot-card--selected {
+  background-color: var(--color-neutral-200);
+  border: var(--booking-slot-border-selected);
+}
+
+.booking-slot-card--unavailable {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.booking-slot-card--skeleton {
+  animation: booking-skeleton-pulse 1.4s ease-in-out infinite;
+  background-color: var(--color-neutral-300);
+  height: 5.6rem;
+  min-width: 9rem;
+}
+
+@keyframes booking-skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.booking-slot-card__time {
+  color: var(--color-neutral-800);
+  font: var(--type-body-2-strong-font);
+  letter-spacing: var(--type-body-2-strong-letter-spacing);
+}
+
+.booking-slot-card__capacity {
+  color: var(--color-neutral-600);
+  font: var(--type-details-caption-1-font);
+  letter-spacing: var(--type-details-caption-1-letter-spacing);
+}
+
+.booking-slot-card__status {
+  color: var(--booking-color-unavailable);
+  font: var(--type-details-caption-1-font);
+  letter-spacing: var(--type-details-caption-1-letter-spacing);
+}
+
+/* ── Stepper ────────────────────────────────────────────────────────────── */
+
+.booking-stepper {
+  align-items: center;
+  display: flex;
+  gap: var(--spacing-xsmall);
+}
+
+.booking-stepper__btn {
+  align-items: center;
+  background: var(--color-neutral-50);
+  border: var(--booking-slot-border);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  font-size: 1.8rem;
+  height: 3.6rem;
+  justify-content: center;
+  line-height: 1;
+  transition: background-color 0.15s, border-color 0.15s;
+  width: 3.6rem;
+}
+
+.booking-stepper__btn:hover:not(:disabled) {
+  background-color: var(--color-neutral-200);
+  border-color: var(--color-brand-500);
+}
+
+.booking-stepper__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.booking-stepper__value {
+  font: var(--type-headline-2-strong-font);
+  letter-spacing: var(--type-headline-2-strong-letter-spacing);
+  min-width: 3rem;
+  text-align: center;
+}
+
+/* ── Session List (Event booking) ───────────────────────────────────────── */
+
+.booking-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--booking-slot-gap);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.booking-session-card {
+  background: var(--color-neutral-50);
+  border: var(--booking-slot-border);
+  border-radius: var(--booking-slot-border-radius);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xxsmall);
+  padding: var(--spacing-small);
+  text-align: left;
+  transition: border-color 0.15s, background-color 0.15s;
+  width: 100%;
+}
+
+.booking-session-card:hover:not(:disabled) {
+  border-color: var(--color-brand-500);
+}
+
+.booking-session-card--selected {
+  background-color: var(--color-neutral-200);
+  border: var(--booking-slot-border-selected);
+}
+
+.booking-session-card--unavailable {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.booking-session-card__date {
+  color: var(--color-neutral-800);
+  font: var(--type-body-2-strong-font);
+  letter-spacing: var(--type-body-2-strong-letter-spacing);
+}
+
+.booking-session-card__label {
+  color: var(--color-neutral-700);
+  font: var(--type-body-2-default-font);
+  letter-spacing: var(--type-body-2-default-letter-spacing);
+}
+
+.booking-session-card__availability {
+  font: var(--type-details-caption-1-font);
+  letter-spacing: var(--type-details-caption-1-letter-spacing);
+}
+
+.booking-session-card__availability--available {
+  color: var(--booking-color-available);
+}
+
+.booking-session-card__availability--sold-out {
+  color: var(--booking-color-sold-out);
+}
+
+/* ── Venue Availability Feedback ────────────────────────────────────────── */
+
+.booking-panel__availability-feedback {
+  min-height: 2.4rem;
+}
+
+.booking-panel__avail-msg {
+  border-radius: var(--shape-border-radius-1);
+  font: var(--type-body-2-default-font);
+  letter-spacing: var(--type-body-2-default-letter-spacing);
+  margin: 0;
+  padding: var(--spacing-xsmall) var(--spacing-small);
+}
+
+.booking-panel__avail-msg--available {
+  background-color: var(--booking-color-available-bg);
+  color: var(--booking-color-available);
+}
+
+.booking-panel__avail-msg--unavailable {
+  background-color: var(--booking-color-sold-out-bg);
+  color: var(--booking-color-sold-out);
 }
