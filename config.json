@@ -2,7 +2,7 @@
   "public": {
     "default": {
       "commerce-core-endpoint": "https://booking-dev-egkz5uy-mwaag5cpiarn6.ap-4.magentosite.cloud/graphql",
-      "commerce-endpoint": "https://booking-dev-egkz5uy-mwaag5cpiarn6.ap-4.magentosite.cloud/graphql",
+      "commerce-endpoint": "https://na1-sandbox.api.commerce.adobe.com/Ln5St2SeSqD9UHrcGGyKjT/graphql",
       "commerce-assets-enabled": false,
       "headers": {
         "all": {
