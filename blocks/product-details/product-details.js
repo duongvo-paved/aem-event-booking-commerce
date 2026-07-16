@@ -32,7 +32,6 @@ import {
   fetchPlaceholders,
   getProductLink,
 } from '../../scripts/commerce.js';
-import { getBookingType } from '../../scripts/booking.js';
 
 // Initializers
 import { IMAGES_SIZES } from '../../scripts/initializers/pdp.js';
@@ -59,16 +58,11 @@ function isProductPrerendered() {
   }
 }
 
-// Function to update the Add to Cart / Book Now button text
-function updateAddToCartButtonText(addToCartInstance, inCart, labels, isBooking) {
-  let buttonText;
-  if (isBooking) {
-    buttonText = labels.Booking?.BookNow ?? 'Book Now';
-  } else {
-    buttonText = inCart
-      ? labels.Global?.UpdateProductInCart
-      : labels.Global?.AddProductToCart;
-  }
+// Function to update the Add to Cart button text
+function updateAddToCartButtonText(addToCartInstance, inCart, labels) {
+  const buttonText = inCart
+    ? labels.Global?.UpdateProductInCart
+    : labels.Global?.AddProductToCart;
   if (addToCartInstance) {
     addToCartInstance.setProps((prev) => ({
       ...prev,
@@ -84,9 +78,6 @@ export default async function decorate(block) {
 
   const labels = await fetchPlaceholders();
 
-  // Determine if this is a bookable product and which type
-  const bookingType = getBookingType(product);
-
   // Read itemUid from URL
   const urlParams = new URLSearchParams(window.location.search);
   const itemUidFromUrl = urlParams.get('itemUid');
@@ -94,7 +85,7 @@ export default async function decorate(block) {
   // State to track if we are in update mode
   let isUpdateMode = false;
 
-  // Layout — includes booking panel slot alongside standard configuration
+  // Layout
   const fragment = document.createRange().createContextualFragment(`
     <div class="product-details__alert"></div>
     <div class="product-details__wrapper">
@@ -110,7 +101,6 @@ export default async function decorate(block) {
         <div class="product-details__configuration">
           <div class="product-details__options"></div>
           <div class="product-details__quantity"></div>
-          <div class="product-details__booking"></div>
           <div class="product-details__buttons">
             <div class="product-details__buttons__add-to-cart"></div>
             <div class="product-details__buttons__add-to-wishlist"></div>
@@ -131,7 +121,6 @@ export default async function decorate(block) {
   const $options = fragment.querySelector('.product-details__options');
   const $quantity = fragment.querySelector('.product-details__quantity');
   const $giftCardOptions = fragment.querySelector('.product-details__gift-card-options');
-  const $booking = fragment.querySelector('.product-details__booking');
   const $addToCart = fragment.querySelector('.product-details__buttons__add-to-cart');
   const $wishlistToggleBtn = fragment.querySelector('.product-details__buttons__add-to-wishlist');
   const $description = fragment.querySelector('.product-details__description');
@@ -245,43 +234,14 @@ export default async function decorate(block) {
     })($wishlistToggleBtn),
   ]);
 
-  // ── Booking panel (replaces standard options/quantity for booking products) ──
-  let bookingPanel = null;
-  // Ref updated after button creation so the callback can update button state
-  let addToCartController = null;
-
-  if (bookingType && product) {
-    // Suppress the standard options/quantity drop-ins for booking products
-    $options.style.display = 'none';
-    $quantity.style.display = 'none';
-    // Hide wishlist — bookings are not wishlisted
-    $wishlistToggleBtn.style.display = 'none';
-
-    const { default: initBookingPanel } = await import('./booking/index.js');
-    bookingPanel = await initBookingPanel(
-      $booking,
-      bookingType,
-      product,
-      labels,
-      (_selection, valid) => {
-        addToCartController?.setProps((prev) => ({ ...prev, disabled: !valid }));
-      },
-    );
-  }
-
-  // Configuration – Button - Add to Cart / Book Now
+  // Configuration – Button - Add to Cart
   const addToCart = await UI.render(Button, {
-    children: bookingType
-      ? (labels.Booking?.BookNow ?? 'Book Now')
-      : labels.Global?.AddProductToCart,
-    // Booking products start disabled until a valid selection is made
-    disabled: !!bookingType,
-    icon: h(Icon, { source: bookingType ? 'Date' : 'Cart' }),
+    children: labels.Global?.AddProductToCart,
+    icon: h(Icon, { source: 'Cart' }),
     onClick: async () => {
-      const addingText = bookingType
-        ? (labels.Booking?.AddingToCart ?? 'Processing…')
+      const buttonActionText = isUpdateMode
+        ? labels.Global?.UpdatingInCart
         : labels.Global?.AddingToCart;
-      const buttonActionText = isUpdateMode ? labels.Global?.UpdatingInCart : addingText;
       try {
         addToCart.setProps((prev) => ({
           ...prev,
@@ -289,47 +249,6 @@ export default async function decorate(block) {
           disabled: true,
         }));
 
-        // ── Booking product: add with booking selection data ───────────────
-        if (bookingType && bookingPanel) {
-          if (!bookingPanel.isValid()) return;
-
-          const { addProductsToCart } = await import('@dropins/storefront-cart/api.js');
-          const selection = bookingPanel.getSelection();
-
-          // Read the Commerce custom option UID from the product attribute
-          // if configured; otherwise add without entered_options and let the
-          // App Builder backend handle booking creation via order events.
-          const bookingOptionUid = product.attributes?.find(
-            (a) => a.name === 'booking_option_uid',
-          )?.value;
-
-          const cartItem = {
-            sku: product.sku,
-            quantity: selection.quantity || 1,
-          };
-
-          if (bookingOptionUid) {
-            cartItem.entered_options = [{
-              uid: bookingOptionUid,
-              value: JSON.stringify({
-                bookingType: selection.bookingType,
-                slotId: selection.slotId || selection.sessionId || null,
-                date: selection.date || selection.sessionDate || selection.startDate || null,
-                endDate: selection.endDate || null,
-                attendees: selection.attendeeCount
-                  || selection.ticketCount
-                  || selection.capacityNeeded
-                  || 1,
-              }),
-            }];
-          }
-
-          await addProductsToCart([cartItem]);
-          inlineAlert?.remove();
-          return;
-        }
-
-        // ── Standard product: existing add-to-cart / update flow ──────────
         // get the current selection values
         const values = pdpApi.getProductConfigurationValues();
         const valid = pdpApi.isProductConfigurationValid();
@@ -340,7 +259,7 @@ export default async function decorate(block) {
             // --- Update existing item ---
             const { updateProductsFromCart } = await import(
               '@dropins/storefront-cart/api.js'
-            );
+              );
 
             await updateProductsFromCart([{ ...values, uid: itemUidFromUrl }]);
 
@@ -365,7 +284,7 @@ export default async function decorate(block) {
           // --- Add new item ---
           const { addProductsToCart } = await import(
             '@dropins/storefront-cart/api.js'
-          );
+            );
           await addProductsToCart([{ ...values }]);
         }
 
@@ -391,26 +310,21 @@ export default async function decorate(block) {
         });
       } finally {
         // Reset button text using the helper function which respects the current mode
-        updateAddToCartButtonText(addToCart, isUpdateMode, labels, !!bookingType);
-        // Re-enable button — for booking products, re-enabled only if selection is still valid
+        updateAddToCartButtonText(addToCart, isUpdateMode, labels);
+        // Re-enable button
         addToCart.setProps((prev) => ({
           ...prev,
-          disabled: bookingType ? !bookingPanel?.isValid() : false,
+          disabled: false,
         }));
       }
     },
   })($addToCart);
 
-  // Store controller reference so the booking panel callback can update it
-  addToCartController = addToCart;
-
-  // Lifecycle Events — pdp/valid only gates the button for standard (non-booking) products
-  if (!bookingType) {
-    events.on('pdp/valid', (valid) => {
-      // update add to cart button disabled state based on product selection validity
-      addToCart.setProps((prev) => ({ ...prev, disabled: !valid }));
-    }, { eager: true });
-  }
+  // Lifecycle Events
+  events.on('pdp/valid', (valid) => {
+    // update add to cart button disabled state based on product selection validity
+    addToCart.setProps((prev) => ({ ...prev, disabled: !valid }));
+  }, { eager: true });
 
   // Handle option changes
   events.on('pdp/values', () => {
@@ -453,26 +367,23 @@ export default async function decorate(block) {
   });
 
   // --- Add new event listener for cart/data ---
-  // Update mode only applies to standard (non-booking) products
-  if (!bookingType) {
-    events.on(
-      'cart/data',
-      (cartData) => {
-        let itemIsInCart = false;
-        if (itemUidFromUrl && cartData?.items) {
-          itemIsInCart = cartData.items.some(
-            (item) => item.uid === itemUidFromUrl,
-          );
-        }
-        // Set the update mode state
-        isUpdateMode = itemIsInCart;
+  events.on(
+    'cart/data',
+    (cartData) => {
+      let itemIsInCart = false;
+      if (itemUidFromUrl && cartData?.items) {
+        itemIsInCart = cartData.items.some(
+          (item) => item.uid === itemUidFromUrl,
+        );
+      }
+      // Set the update mode state
+      isUpdateMode = itemIsInCart;
 
-        // Update button text based on whether the item is in the cart
-        updateAddToCartButtonText(addToCart, itemIsInCart, labels, false);
-      },
-      { eager: true },
-    );
-  }
+      // Update button text based on whether the item is in the cart
+      updateAddToCartButtonText(addToCart, itemIsInCart, labels);
+    },
+    { eager: true },
+  );
 
   // Set JSON-LD and Meta Tags
   events.on('aem/lcp', () => {
