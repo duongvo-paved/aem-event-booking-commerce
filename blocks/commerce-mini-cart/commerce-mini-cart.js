@@ -1,5 +1,6 @@
 import { render as provider } from '@dropins/storefront-cart/render.js';
 import MiniCart from '@dropins/storefront-cart/containers/MiniCart.js';
+import * as Cart from '@dropins/storefront-cart/api.js';
 import { events } from '@dropins/tools/event-bus.js';
 import { tryRenderAemAssetsImage } from '@dropins/tools/lib/aem/assets.js';
 import {
@@ -18,6 +19,12 @@ import '../../scripts/initializers/cart.js';
 
 import { readBlockConfig } from '../../scripts/aem.js';
 import { fetchPlaceholders, rootLink, getProductLink } from '../../scripts/commerce.js';
+import { createEventAppClient } from '../../scripts/event-app/client.js';
+import { getEventCartLines } from '../../scripts/event-app/cart.js';
+import {
+  createCartBookingPresenter,
+  getCartBookingLabels,
+} from '../../scripts/event-app/cart-display.js';
 
 export default async function decorate(block) {
   const {
@@ -30,6 +37,14 @@ export default async function decorate(block) {
 
   // Get translations for custom messages
   const placeholders = await fetchPlaceholders();
+  const eventClient = createEventAppClient();
+  const bookingPresenter = createCartBookingPresenter({
+    enrichEvents: (eventIds) => eventClient.enrich(eventIds),
+    eventBus: events,
+    fetchCartLines: (cartId) => getEventCartLines(Cart.fetchGraphQl, cartId),
+    labels: getCartBookingLabels(placeholders),
+    surface: 'mini-cart',
+  });
 
   const MESSAGES = {
     ADDED: placeholders?.Global?.MiniCartAddedMessage,
@@ -169,6 +184,7 @@ export default async function decorate(block) {
     undo: undo === 'true',
 
     slots: {
+      ProductAttributes: bookingPresenter.ProductAttributes,
       Thumbnail: (ctx) => {
         const { item, defaultImageProps } = ctx;
         const anchorWrapper = document.createElement('a');

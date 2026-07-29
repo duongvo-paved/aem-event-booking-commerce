@@ -37,6 +37,22 @@ import {
 import { IMAGES_SIZES } from '../../scripts/initializers/pdp.js';
 import '../../scripts/initializers/cart.js';
 import '../../scripts/initializers/wishlist.js';
+import { createEventAppClient } from '../../scripts/event-app/client.js';
+import {
+  EVENT_APP_ERROR_TYPES,
+  EventAppError,
+} from '../../scripts/event-app/errors.js';
+import {
+  getExternalEventId,
+  isEventProduct,
+} from '../../scripts/event-app/models.js';
+import {
+  addCorrelatedEventProduct,
+} from '../../scripts/event-app/cart.js';
+import {
+  renderEventBooking,
+  renderEventUnavailable,
+} from './event-booking.js';
 
 /**
  * Checks if the page has prerendered product JSON-LD data
@@ -77,6 +93,9 @@ export default async function decorate(block) {
   const product = eventProduct?.sku ? eventProduct : null;
 
   const labels = await fetchPlaceholders();
+  const eventClient = createEventAppClient();
+  const eventMode = isEventProduct(product);
+  let eventBooking = null;
 
   // Read itemUid from URL
   const urlParams = new URLSearchParams(window.location.search);
@@ -127,6 +146,11 @@ export default async function decorate(block) {
   const $attributes = fragment.querySelector('.product-details__attributes');
 
   block.replaceChildren(fragment);
+
+  const $eventBooking = document.createElement('div');
+  $eventBooking.className = 'product-details__event-booking';
+  const $configuration = block.querySelector('.product-details__configuration');
+  $configuration.after($eventBooking);
 
   const gallerySlots = {
     CarouselThumbnail: (ctx) => {
@@ -217,7 +241,9 @@ export default async function decorate(block) {
     })($options),
 
     // Configuration  Quantity
-    pdpRendered.render(ProductQuantity, {})($quantity),
+    pdpRendered.render(ProductQuantity, {
+      onValue: (quantity) => eventBooking?.setQuantity(quantity),
+    })($quantity),
 
     // Configuration  Gift Card Options
     pdpRendered.render(ProductGiftCardOptions, {})($giftCardOptions),
@@ -234,96 +260,151 @@ export default async function decorate(block) {
     })($wishlistToggleBtn),
   ]);
 
-  // Configuration – Button - Add to Cart
-  const addToCart = await UI.render(Button, {
-    children: labels.Global?.AddProductToCart,
-    icon: h(Icon, { source: 'Cart' }),
-    onClick: async () => {
-      const buttonActionText = isUpdateMode
-        ? labels.Global?.UpdatingInCart
-        : labels.Global?.AddingToCart;
+  let addToCart = null;
+  if (eventMode) {
+    const externalEventId = getExternalEventId(product);
+    if (
+      !eventClient.config.enabled
+      || !externalEventId
+      || !product?.inStock
+      || !product?.addToCartAllowed
+    ) {
+      renderEventUnavailable($eventBooking, labels);
+    } else {
       try {
-        addToCart.setProps((prev) => ({
-          ...prev,
-          children: buttonActionText,
-          disabled: true,
-        }));
-
-        // get the current selection values
-        const values = pdpApi.getProductConfigurationValues();
-        const valid = pdpApi.isProductConfigurationValid();
-
-        // add or update the product in the cart
-        if (valid) {
-          if (isUpdateMode) {
-            // --- Update existing item ---
-            const { updateProductsFromCart } = await import(
-              '@dropins/storefront-cart/api.js'
+        const event = await eventClient.getEvent(externalEventId);
+        eventBooking = renderEventBooking({
+          cartUrl: rootLink('/cart'),
+          container: $eventBooking,
+          event,
+          labels,
+          product,
+          addToCart: async ({ form, pendingSubmission }) => {
+            const values = pdpApi.getProductConfigurationValues();
+            if (!pdpApi.isProductConfigurationValid()) {
+              throw new EventAppError(
+                EVENT_APP_ERROR_TYPES.REQUEST,
+                'Product configuration is invalid',
               );
-
-            await updateProductsFromCart([{ ...values, uid: itemUidFromUrl }]);
-
-            // --- START REDIRECT ON UPDATE ---
-            const updatedSku = values?.sku;
-            if (updatedSku) {
-              const cartRedirectUrl = new URL(
-                rootLink('/cart'),
-                window.location.origin,
-              );
-              cartRedirectUrl.searchParams.set('itemUid', itemUidFromUrl);
-              window.location.href = cartRedirectUrl.toString();
-            } else {
-              // Fallback if SKU is somehow missing (shouldn't happen in normal flow)
-              console.warn(
-                'Could not retrieve SKU for updated item. Redirecting to cart without parameter.',
-              );
-              window.location.href = rootLink('/cart');
             }
-            return;
-          }
-          // --- Add new item ---
-          const { addProductsToCart } = await import(
-            '@dropins/storefront-cart/api.js'
-            );
-          await addProductsToCart([{ ...values }]);
-        }
 
-        // reset any previous alerts if successful
-        inlineAlert?.remove();
-      } catch (error) {
-        // add alert message
-        inlineAlert = await UI.render(InLineAlert, {
-          heading: 'Error',
-          description: error.message,
-          icon: h(Icon, { source: 'Warning' }),
-          'aria-live': 'assertive',
-          role: 'alert',
-          onDismiss: () => {
-            inlineAlert.remove();
+            const cartApi = await import('@dropins/storefront-cart/api.js');
+            return addCorrelatedEventProduct({
+              cartApi,
+              createIntent: (payload) => eventClient.createIntent(payload),
+              eventId: event.eventId,
+              form,
+              pendingSubmission,
+              values,
+            });
           },
-        })($alert);
-
-        // Scroll the alertWrapper into view
-        $alert.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
         });
-      } finally {
-        // Reset button text using the helper function which respects the current mode
-        updateAddToCartButtonText(addToCart, isUpdateMode, labels);
-        // Re-enable button
-        addToCart.setProps((prev) => ({
-          ...prev,
-          disabled: false,
-        }));
+        const initialQuantity = pdpApi.getProductConfigurationValues()?.quantity;
+        if (Number.isInteger(initialQuantity)) {
+          eventBooking.setQuantity(initialQuantity);
+        }
+      } catch (error) {
+        renderEventUnavailable(
+          $eventBooking,
+          labels,
+          error.type === EVENT_APP_ERROR_TYPES.NOT_FOUND
+            ? labels.Global?.EventDetailsUnavailable || 'Event details unavailable.'
+            : undefined,
+        );
       }
-    },
-  })($addToCart);
+    }
+  } else {
+    // Configuration – Button - Add to Cart
+    addToCart = await UI.render(Button, {
+      children: labels.Global?.AddProductToCart,
+      icon: h(Icon, { source: 'Cart' }),
+      onClick: async () => {
+        const buttonActionText = isUpdateMode
+          ? labels.Global?.UpdatingInCart
+          : labels.Global?.AddingToCart;
+        try {
+          addToCart.setProps((prev) => ({
+            ...prev,
+            children: buttonActionText,
+            disabled: true,
+          }));
+
+          // get the current selection values
+          const values = pdpApi.getProductConfigurationValues();
+          const valid = pdpApi.isProductConfigurationValid();
+
+          // add or update the product in the cart
+          if (valid) {
+            if (isUpdateMode) {
+              // --- Update existing item ---
+              const { updateProductsFromCart } = await import(
+                '@dropins/storefront-cart/api.js'
+              );
+
+              await updateProductsFromCart([{ ...values, uid: itemUidFromUrl }]);
+
+              // --- START REDIRECT ON UPDATE ---
+              const updatedSku = values?.sku;
+              if (updatedSku) {
+                const cartRedirectUrl = new URL(
+                  rootLink('/cart'),
+                  window.location.origin,
+                );
+                cartRedirectUrl.searchParams.set('itemUid', itemUidFromUrl);
+                window.location.href = cartRedirectUrl.toString();
+              } else {
+                // Fallback if SKU is somehow missing (shouldn't happen in normal flow)
+                console.warn(
+                  'Could not retrieve SKU for updated item. Redirecting to cart without parameter.',
+                );
+                window.location.href = rootLink('/cart');
+              }
+              return;
+            }
+            // --- Add new item ---
+            const { addProductsToCart } = await import(
+              '@dropins/storefront-cart/api.js'
+            );
+            await addProductsToCart([{ ...values }]);
+          }
+
+          // reset any previous alerts if successful
+          inlineAlert?.remove();
+        } catch (error) {
+          // add alert message
+          inlineAlert = await UI.render(InLineAlert, {
+            heading: 'Error',
+            description: error.message,
+            icon: h(Icon, { source: 'Warning' }),
+            'aria-live': 'assertive',
+            role: 'alert',
+            onDismiss: () => {
+              inlineAlert.remove();
+            },
+          })($alert);
+
+          // Scroll the alertWrapper into view
+          $alert.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          });
+        } finally {
+          // Reset button text using the helper function which respects the current mode
+          updateAddToCartButtonText(addToCart, isUpdateMode, labels);
+          // Re-enable button
+          addToCart.setProps((prev) => ({
+            ...prev,
+            disabled: false,
+          }));
+        }
+      },
+    })($addToCart);
+  }
 
   // Lifecycle Events
   events.on('pdp/valid', (valid) => {
     // update add to cart button disabled state based on product selection validity
-    addToCart.setProps((prev) => ({ ...prev, disabled: !valid }));
+    addToCart?.setProps((prev) => ({ ...prev, disabled: !valid }));
   }, { eager: true });
 
   // Handle option changes
@@ -380,7 +461,9 @@ export default async function decorate(block) {
       isUpdateMode = itemIsInCart;
 
       // Update button text based on whether the item is in the cart
-      updateAddToCartButtonText(addToCart, itemIsInCart, labels);
+      if (addToCart) {
+        updateAddToCartButtonText(addToCart, itemIsInCart, labels);
+      }
     },
     { eager: true },
   );

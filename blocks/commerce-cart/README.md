@@ -48,6 +48,9 @@ No localStorage keys are used by this block. -->
 - **Populated Cart**: When cart has items, shows full cart interface with product list and order summary
 - **Configurable Products**: When configurable products are present and editing is enabled, shows edit buttons
 - **Gift Options**: Shows gift options section when cart is not empty
+- **Event Tickets**: Appends a read-only booking summary through the
+  `CartSummaryList.ProductAttributes` slot. Correlation is joined strictly by cart
+  item UID; the opaque intent reference and booking PII are never rendered.
 
 ### User Interaction Flows
 
@@ -65,3 +68,21 @@ No localStorage keys are used by this block. -->
 - **Configuration Errors**: If `readBlockConfig()` fails, uses default configuration values
 - **Render Errors**: If container rendering fails, the affected section remains empty
 - **Fallback Behavior**: Always falls back to default configuration values for missing or invalid settings
+- **Event Booking Fallbacks**: A linked line remains linked if event enrichment is
+  unavailable. A successful Commerce query with no line correlation displays a
+  remove-and-rebook warning. A failed Commerce query displays a temporary
+  unavailable state and does not disable checkout.
+
+### Event Booking Placeholders
+
+The presenter uses English fallbacks when these global placeholders are absent:
+
+- `CartEventBookingHeading`
+- `CartEventBookingLinked`
+- `CartEventBookingAttention`
+- `CartEventBookingAttentionMessage`
+- `CartEventBookingUnavailable`
+- `EventDateLabel`
+- `EventVenueLabel`
+- `EventOrganizerLabel`
+- `EventQuantityLabel`

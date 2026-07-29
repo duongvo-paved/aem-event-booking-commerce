@@ -71,6 +71,134 @@
   margin-top: var(--spacing-xsmall);
 }
 
+.block.product-details .product-details__event-booking {
+  margin-block-end: var(--spacing-xxbig);
+}
+
+.block.product-details .product-details__event-booking:empty {
+  display: none;
+}
+
+.block.product-details .event-booking__metadata,
+.block.product-details .event-booking__form,
+.block.product-details .event-booking__summary {
+  border: var(--shape-border-width-1) solid var(--color-neutral-400);
+  border-radius: var(--shape-border-radius-2);
+  padding: var(--spacing-small);
+}
+
+.block.product-details .event-booking__form {
+  display: grid;
+  gap: var(--spacing-medium);
+  margin-block-start: var(--spacing-medium);
+}
+
+.block.product-details .event-booking__heading {
+  font: var(--type-headline-2-strong-font);
+  letter-spacing: var(--type-headline-2-strong-letter-spacing);
+  margin: 0 0 var(--spacing-small);
+}
+
+.block.product-details .event-booking__metadata dl,
+.block.product-details .event-booking__summary dl {
+  display: grid;
+  gap: var(--spacing-xsmall) var(--spacing-small);
+  grid-template-columns: minmax(8rem, auto) 1fr;
+  margin: 0;
+}
+
+.block.product-details .event-booking__metadata dt,
+.block.product-details .event-booking__summary dt {
+  font: var(--type-body-2-strong-font);
+  letter-spacing: var(--type-body-2-strong-letter-spacing);
+}
+
+.block.product-details .event-booking__metadata dd,
+.block.product-details .event-booking__summary dd {
+  margin: 0;
+}
+
+.block.product-details .event-booking__contact,
+.block.product-details .event-booking__participant {
+  border: 0;
+  display: grid;
+  gap: var(--spacing-small);
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.block.product-details .event-booking__contact legend,
+.block.product-details .event-booking__participant legend {
+  font: var(--type-body-1-strong-font);
+  letter-spacing: var(--type-body-1-strong-letter-spacing);
+  margin-block-end: var(--spacing-small);
+  padding: 0;
+}
+
+.block.product-details .event-booking__participants {
+  display: grid;
+  gap: var(--spacing-medium);
+}
+
+.block.product-details .event-booking__field {
+  display: grid;
+  gap: var(--spacing-xxsmall);
+}
+
+.block.product-details .event-booking__field input {
+  border: var(--shape-border-width-1) solid var(--color-neutral-500);
+  border-radius: var(--shape-border-radius-1);
+  font: inherit;
+  min-height: 3rem;
+  padding-inline: var(--spacing-xsmall);
+  width: 100%;
+}
+
+.block.product-details .event-booking__field input:focus-visible,
+.block.product-details .event-booking__consent input:focus-visible {
+  outline: var(--shape-border-width-3) solid var(--color-brand-500);
+  outline-offset: var(--shape-border-width-2);
+}
+
+.block.product-details .event-booking__field input[aria-invalid="true"] {
+  border-color: var(--color-alert-800);
+}
+
+.block.product-details .event-booking__field-error,
+.block.product-details .event-booking__feedback {
+  color: var(--color-alert-800);
+  font: var(--type-body-2-default-font);
+  letter-spacing: var(--type-body-2-default-letter-spacing);
+}
+
+.block.product-details .event-booking__field-error:empty,
+.block.product-details .event-booking__feedback:empty {
+  display: none;
+}
+
+.block.product-details .event-booking__consent {
+  align-items: start;
+  display: grid;
+  gap: var(--spacing-xsmall);
+  grid-template-columns: auto 1fr;
+}
+
+.block.product-details .event-booking__consent .event-booking__field-error {
+  grid-column: 2;
+}
+
+.block.product-details .event-booking__submit {
+  justify-self: stretch;
+}
+
+.block.product-details .event-booking__unavailable {
+  background: var(--color-warning-200);
+  border-radius: var(--shape-border-radius-1);
+  margin: 0;
+  padding: var(--spacing-small);
+}
+
 @media (min-width: 900px) {
   .product-details__wrapper {
     grid-template-columns: repeat(var(--grid-3-columns), 1fr);
@@ -113,5 +241,19 @@
 
   .product-details__quantity {
     grid-column: 1 / span 2;
+  }
+
+  .block.product-details .event-booking__contact,
+  .block.product-details .event-booking__participant {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .block.product-details .event-booking__contact legend,
+  .block.product-details .event-booking__participant legend {
+    grid-column: 1 / -1;
+  }
+
+  .block.product-details .event-booking__contact .event-booking__field:last-child {
+    grid-column: 1 / -1;
   }
 }

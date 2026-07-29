@@ -34,6 +34,12 @@ import '../../scripts/initializers/wishlist.js';
 
 import { readBlockConfig } from '../../scripts/aem.js';
 import { fetchPlaceholders, rootLink, getProductLink } from '../../scripts/commerce.js';
+import { createEventAppClient } from '../../scripts/event-app/client.js';
+import { getEventCartLines } from '../../scripts/event-app/cart.js';
+import {
+  createCartBookingPresenter,
+  getCartBookingLabels,
+} from '../../scripts/event-app/cart-display.js';
 
 export default async function decorate(block) {
   // Configuration
@@ -51,6 +57,14 @@ export default async function decorate(block) {
   } = readBlockConfig(block);
 
   const placeholders = await fetchPlaceholders();
+  const eventClient = createEventAppClient();
+  const bookingPresenter = createCartBookingPresenter({
+    enrichEvents: (eventIds) => eventClient.enrich(eventIds),
+    eventBus: events,
+    fetchCartLines: (cartId) => getEventCartLines(Cart.fetchGraphQl, cartId),
+    labels: getCartBookingLabels(placeholders),
+    surface: 'cart',
+  });
 
   const _cart = Cart.getCartDataFromCache();
 
@@ -183,6 +197,7 @@ export default async function decorate(block) {
       enableRemoveItem: enableRemoveItem === 'true',
       undo: undo === 'true',
       slots: {
+        ProductAttributes: bookingPresenter.ProductAttributes,
         Thumbnail: (ctx) => {
           const { item, defaultImageProps } = ctx;
           const anchorWrapper = document.createElement('a');

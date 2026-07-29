@@ -4,6 +4,13 @@
 
 The Product List Page block powers search and category listing pages using the storefront-product-discovery dropin. It renders faceted search results with sort, filters, pagination, product cards (with add-to-cart and wishlist), and keeps the URL in sync with search state. The block supports two modes: **search page** (full-text search with optional filters) and **category page** (products in a category, optionally filtered).
 
+Products whose Commerce attributes include `is_event_ticket` and
+`external_event_id` are enriched through the configured Event App client. One
+batch request is made for the current Commerce page, results are joined by event
+ID, and Commerce ordering is preserved. Enrichment failures leave the Commerce
+cards available. Event products always route to the PDP instead of adding directly
+to cart because participant data and booking-intent creation are required first.
+
 ## Configuration Options
 
 Block configuration is read via `readBlockConfig(block)`.
@@ -40,6 +47,12 @@ The block does not emit events; it calls the dropin’s `search()` API and react
 ### Local Storage
 
 This block does not use localStorage.
+
+### Event App Configuration
+
+The block does not accept authored endpoint configuration. Event actions must be
+provided through the environment-level `event-app` configuration and remain
+disabled until the versioned API and browser CORS gates are approved.
 
 ## Behavior Patterns
 

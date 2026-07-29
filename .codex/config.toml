@@ -1,3 +1,6 @@
 [mcp_servers.commerce-extensibility]
 command = "node"
 args = ["node_modules/@adobe-commerce/commerce-extensibility-tools/index.js"]
+
+[mcp_servers.commerce-extensibility.tools.search-commerce-docs]
+approval_mode = "approve"

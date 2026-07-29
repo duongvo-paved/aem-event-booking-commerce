@@ -18,6 +18,12 @@ import { events } from '@dropins/tools/event-bus.js';
 import { readBlockConfig } from '../../scripts/aem.js';
 import { fetchPlaceholders, getProductLink } from '../../scripts/commerce.js';
 import { getSearchStateFromUrl, applySearchStateToUrl } from './search-url.js';
+import { createEventAppClient } from '../../scripts/event-app/client.js';
+import { formatEventDateRange } from '../../scripts/event-app/dates.js';
+import {
+  getExternalEventId,
+  isEventProduct,
+} from '../../scripts/event-app/models.js';
 
 // Initializers
 import '../../scripts/initializers/search.js';
@@ -25,6 +31,8 @@ import '../../scripts/initializers/wishlist.js';
 
 export default async function decorate(block) {
   const labels = await fetchPlaceholders();
+  const eventClient = createEventAppClient();
+  let enrichmentRequest = 0;
 
   const config = readBlockConfig(block);
   const pageSize = parseInt(config.pagesize, 10) || 9;
@@ -36,6 +44,7 @@ export default async function decorate(block) {
       <div class="search__facets"></div>
       <div class="search__product-sort"></div>
       <div class="search__product-list"></div>
+      <div class="search__event-status" aria-live="polite"></div>
       <div class="search__pagination"></div>
     </div>
   `);
@@ -45,6 +54,7 @@ export default async function decorate(block) {
   const $facets = fragment.querySelector('.search__facets');
   const $productSort = fragment.querySelector('.search__product-sort');
   const $productList = fragment.querySelector('.search__product-list');
+  const $eventStatus = fragment.querySelector('.search__event-status');
   const $pagination = fragment.querySelector('.search__pagination');
 
   block.innerHTML = '';
@@ -99,11 +109,12 @@ export default async function decorate(block) {
   }
 
   const getAddToCartButton = (product) => {
-    if (product.typename === 'ComplexProductView') {
+    if (isEventProduct(product) || product.typename === 'ComplexProductView') {
       const button = document.createElement('div');
       UI.render(Button, {
-        children: labels.Global?.AddProductToCart,
-        icon: Icon({ source: 'Cart' }),
+        children: isEventProduct(product)
+          ? labels.Global?.ViewEvent || 'View event'
+          : labels.Global?.AddProductToCart,
         href: getProductLink(product.urlKey, product.sku),
         variant: 'primary',
       })(button);
@@ -118,6 +129,63 @@ export default async function decorate(block) {
     })(button);
     return button;
   };
+
+  function updateEventCards(eventMap, expectedIds) {
+    block.querySelectorAll('.event-card-metadata').forEach((metadata) => {
+      const { eventId } = metadata.dataset;
+      if (!expectedIds.has(eventId)) return;
+
+      metadata.replaceChildren();
+      const event = eventMap.get(eventId);
+      if (!event) {
+        metadata.textContent = labels.Global?.EventDetailsUnavailable
+          || 'Event details unavailable';
+        metadata.classList.add('event-card-metadata--unavailable');
+        metadata.removeAttribute('hidden');
+        return;
+      }
+
+      const schedule = document.createElement('span');
+      schedule.className = 'event-card-metadata__schedule';
+      schedule.textContent = formatEventDateRange(event);
+
+      const venue = document.createElement('span');
+      venue.className = 'event-card-metadata__venue';
+      venue.textContent = `${event.venue.name}, ${event.venue.address}`;
+
+      const organizer = document.createElement('span');
+      organizer.className = 'event-card-metadata__organizer';
+      organizer.textContent = event.organizer;
+
+      metadata.classList.remove('event-card-metadata--unavailable');
+      metadata.append(schedule, venue, organizer);
+      metadata.removeAttribute('hidden');
+    });
+  }
+
+  async function enrichEventProducts(products) {
+    enrichmentRequest += 1;
+    const requestId = enrichmentRequest;
+    const eventIds = products
+      .filter(isEventProduct)
+      .map(getExternalEventId)
+      .filter(Boolean);
+    const uniqueIds = [...new Set(eventIds)];
+
+    $eventStatus.textContent = '';
+    if (!eventClient.config.enabled || uniqueIds.length === 0) return;
+
+    try {
+      const eventMap = await eventClient.enrich(uniqueIds);
+      if (requestId !== enrichmentRequest) return;
+      updateEventCards(eventMap, new Set(uniqueIds));
+    } catch {
+      if (requestId !== enrichmentRequest) return;
+      updateEventCards(new Map(), new Set(uniqueIds));
+      $eventStatus.textContent = labels.Global?.EventEnrichmentUnavailable
+        || 'Some event details are temporarily unavailable.';
+    }
+  }
 
   await Promise.all([
     // Sort By
@@ -146,6 +214,7 @@ export default async function decorate(block) {
     // Product List
     provider.render(SearchResults, {
       routeProduct: (product) => getProductLink(product.urlKey, product.sku),
+      onSearchResult: enrichEventProducts,
       slots: {
         ProductImage: (ctx) => {
           const { product, defaultImageProps } = ctx;
@@ -178,6 +247,17 @@ export default async function decorate(block) {
           actionsWrapper.appendChild(addToCartBtn);
           actionsWrapper.appendChild($wishlistToggle);
           ctx.replaceWith(actionsWrapper);
+        },
+        ProductName: (ctx) => {
+          if (!isEventProduct(ctx.product)) return;
+          const eventId = getExternalEventId(ctx.product);
+          if (!eventId) return;
+
+          const metadata = document.createElement('span');
+          metadata.className = 'event-card-metadata';
+          metadata.dataset.eventId = eventId;
+          metadata.setAttribute('hidden', '');
+          ctx.appendChild(metadata);
         },
       },
     })($productList),

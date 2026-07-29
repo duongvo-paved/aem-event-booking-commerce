@@ -1,0 +1,95 @@
+.block.event-ticket {
+  margin-inline: auto;
+  max-width: 75rem;
+}
+
+.block.event-ticket .event-ticket__wrapper {
+  display: grid;
+  gap: var(--spacing-medium);
+}
+
+.block.event-ticket .event-ticket__content,
+.block.event-ticket .event-ticket__support {
+  max-width: 48rem;
+}
+
+.block.event-ticket .event-ticket__message {
+  background: var(--color-neutral-200);
+  border-radius: var(--shape-border-radius-1);
+  margin: 0;
+  padding: var(--spacing-small);
+}
+
+.block.event-ticket .event-ticket__message[role="alert"] {
+  background: var(--color-alert-200);
+}
+
+.block.event-ticket .event-ticket__booking > h2 {
+  font: var(--type-headline-1-font);
+  letter-spacing: var(--type-headline-1-letter-spacing);
+}
+
+.block.event-ticket .event-ticket__booking > dl,
+.block.event-ticket .event-ticket__ticket dl {
+  display: grid;
+  gap: var(--spacing-xsmall) var(--spacing-small);
+  grid-template-columns: minmax(8rem, auto) 1fr;
+}
+
+.block.event-ticket .event-ticket__booking dt,
+.block.event-ticket .event-ticket__ticket dt {
+  font: var(--type-body-2-strong-font);
+  letter-spacing: var(--type-body-2-strong-letter-spacing);
+}
+
+.block.event-ticket .event-ticket__booking dd,
+.block.event-ticket .event-ticket__ticket dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.block.event-ticket .event-ticket__list {
+  display: grid;
+  gap: var(--spacing-medium);
+  margin-block-start: var(--spacing-medium);
+}
+
+.block.event-ticket .event-ticket__ticket {
+  border: var(--shape-border-width-1) solid var(--color-neutral-400);
+  border-inline-start-width: var(--shape-border-width-4);
+  border-radius: var(--shape-border-radius-2);
+  padding: var(--spacing-small);
+}
+
+.block.event-ticket .event-ticket__ticket--active {
+  border-inline-start-color: var(--color-positive-800);
+}
+
+.block.event-ticket .event-ticket__ticket--pending {
+  border-inline-start-color: var(--color-warning-800);
+}
+
+.block.event-ticket .event-ticket__ticket--invalid {
+  background: var(--color-alert-200);
+  border-inline-start-color: var(--color-alert-800);
+}
+
+.block.event-ticket .event-ticket__qr {
+  display: block;
+  height: auto;
+  margin-block-start: var(--spacing-small);
+  max-width: 16rem;
+  width: 100%;
+}
+
+.block.event-ticket .event-ticket__error {
+  display: grid;
+  gap: var(--spacing-small);
+  justify-items: start;
+}
+
+@media (min-width: 768px) {
+  .block.event-ticket .event-ticket__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

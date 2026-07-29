@@ -205,6 +205,31 @@
           }
         },
         {
+          "title": "Event Ticket",
+          "id": "event-ticket",
+          "model": "event-ticket",
+          "plugins": {
+            "da": {
+              "rows": 3,
+              "columns": 1,
+              "fields": [
+                {
+                  "name": "heading",
+                  "selector": "div:nth-child(1)>div"
+                },
+                {
+                  "name": "introduction",
+                  "selector": "div:nth-child(2)>div"
+                },
+                {
+                  "name": "support",
+                  "selector": "div:nth-child(3)>div"
+                }
+              ]
+            }
+          }
+        },
+        {
           "title": "Fragment",
           "id": "fragment",
           "model": "fragment",

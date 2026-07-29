@@ -62,6 +62,47 @@
     width: fit-content;
 }
 
+.commerce-cart .event-cart-booking-host {
+  margin-top: var(--spacing-xsmall);
+}
+
+.commerce-cart .event-cart-booking {
+  border-left: 3px solid var(--color-neutral-500);
+  padding-left: var(--spacing-small);
+}
+
+.commerce-cart .event-cart-booking h3 {
+  font: var(--type-body-1-strong-font);
+  letter-spacing: var(--type-body-1-strong-letter-spacing);
+  margin: 0 0 var(--spacing-xxsmall);
+}
+
+.commerce-cart .event-cart-booking__status,
+.commerce-cart .event-cart-booking__description {
+  margin: 0 0 var(--spacing-xxsmall);
+}
+
+.commerce-cart .event-cart-booking__status[role="alert"] {
+  color: var(--color-alert-800);
+  font-weight: 600;
+}
+
+.commerce-cart .event-cart-booking dl {
+  display: grid;
+  gap: var(--spacing-xxsmall) var(--spacing-small);
+  grid-template-columns: minmax(min-content, auto) minmax(0, 1fr);
+  margin: var(--spacing-xsmall) 0 0;
+}
+
+.commerce-cart .event-cart-booking dt {
+  font-weight: 600;
+}
+
+.commerce-cart .event-cart-booking dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 @media (min-width: 768px) {
   .cart__wrapper {
     flex-direction: row;

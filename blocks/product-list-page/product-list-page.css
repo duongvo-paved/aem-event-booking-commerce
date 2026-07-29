@@ -70,6 +70,28 @@
   margin-block-end: var(--spacing-small);
 }
 
+.block.product-list-page .search__event-status {
+  grid-area: product-list;
+}
+
+.block.product-list-page .search__event-status:empty {
+  display: none;
+}
+
+.block.product-list-page .event-card-metadata {
+  color: var(--color-neutral-700);
+  display: flex;
+  flex-direction: column;
+  font: var(--type-body-2-default-font);
+  letter-spacing: var(--type-body-2-default-letter-spacing);
+  gap: var(--spacing-xxsmall);
+  margin-block-start: var(--spacing-xsmall);
+}
+
+.block.product-list-page .event-card-metadata--unavailable {
+  color: var(--color-neutral-600);
+}
+
 .block.product-list-page .search__pagination {
   grid-area: pagination;
   margin-block-end: var(--spacing-small);

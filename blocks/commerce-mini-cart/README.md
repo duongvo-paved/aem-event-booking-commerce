@@ -30,6 +30,8 @@ No localStorage keys are used by this block. -->
 
 - `events.on('cart/product/added', callback)` - Listens for product addition events to show success message
 - `events.on('cart/product/updated', callback)` - Listens for product update events to show update message
+- `events.on('cart/data', callback)` - Refreshes the shared event booking
+  presenter from the current cart model
 
 <!-- #### Event Emitters
 
@@ -43,6 +45,9 @@ No events are emitted by this block. -->
 - **Populated Cart**: When cart has items, shows mini cart with product list and actions
 - **Configurable Products**: When configurable products are present and editing is enabled, shows edit buttons
 - **Undo Mode**: When undo is enabled, prevents mini cart from closing during remove operations
+- **Event Tickets**: Appends a compact read-only booking summary through the
+  `MiniCart.ProductAttributes` slot. It displays status, schedule, venue, and
+  quantity while omitting organizer and all booking PII/correlation values.
 
 ### User Interaction Flows
 
@@ -59,3 +64,11 @@ No events are emitted by this block. -->
 - **Configuration Errors**: If `readBlockConfig()` fails, uses default configuration values
 - **Render Errors**: If container rendering fails, the block content remains empty
 - **Fallback Behavior**: Always falls back to default configuration values for missing or invalid settings
+- **Event Booking Fallbacks**: Uses the same linked, remove-and-rebook, and
+  temporary-unavailable states as the full cart without changing checkout
+  availability.
+
+### Event Booking Placeholders
+
+The mini-cart shares the event booking placeholders documented by the Commerce
+Cart block and uses the same English fallbacks.

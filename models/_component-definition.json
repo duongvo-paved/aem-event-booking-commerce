@@ -40,7 +40,9 @@
         {
           "...": "../blocks/enrichment/_*.json#/definitions"
         },
-
+        {
+          "...": "../blocks/event-*/_*.json#/definitions"
+        },
         {
           "...": "../blocks/fragment/_*.json#/definitions"
         },

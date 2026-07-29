@@ -1,0 +1,58 @@
+{
+  "definitions": [
+    {
+      "title": "Event Ticket",
+      "id": "event-ticket",
+      "model": "event-ticket",
+      "plugins": {
+        "da": {
+          "rows": 3,
+          "columns": 1,
+          "fields": [
+            {
+              "name": "heading",
+              "selector": "div:nth-child(1)>div"
+            },
+            {
+              "name": "introduction",
+              "selector": "div:nth-child(2)>div"
+            },
+            {
+              "name": "support",
+              "selector": "div:nth-child(3)>div"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "models": [
+    {
+      "id": "event-ticket",
+      "fields": [
+        {
+          "component": "richtext",
+          "name": "heading",
+          "label": "Heading",
+          "value": "",
+          "valueType": "string"
+        },
+        {
+          "component": "richtext",
+          "name": "introduction",
+          "label": "Introduction",
+          "value": "",
+          "valueType": "string"
+        },
+        {
+          "component": "richtext",
+          "name": "support",
+          "label": "Support",
+          "value": "",
+          "valueType": "string"
+        }
+      ]
+    }
+  ],
+  "filters": []
+}
