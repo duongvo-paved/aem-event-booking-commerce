@@ -27,7 +27,7 @@ or Runtime manifests without contract approval.
         "encoding": "query"
       },
       "create-intent": {
-        "url": "https://approved-runtime.example/approved-create-intent-path",
+        "url": "https://approved-runtime.example/api/v1/web/booking-api/create-intent",
         "method": "POST",
         "encoding": "json-body"
       },

@@ -117,6 +117,7 @@ await evaluate(`(async () => {
   });
   await Promise.all([
     loadStyle('/blocks/commerce-cart/commerce-cart.css'),
+    loadStyle('/blocks/commerce-checkout-success/commerce-checkout-success.css'),
     loadStyle('/blocks/commerce-mini-cart/commerce-mini-cart.css'),
   ]);
 
@@ -138,6 +139,8 @@ await evaluate(`(async () => {
       { code: 'External Event Id', value: 'event-1' },
     ],
     quantity: 2,
+    sku: 'event-sku',
+    topLevelSku: 'event-sku',
     uid: 'event-line',
   };
   const eventBus = { on: () => ({ off() {} }) };
@@ -165,6 +168,25 @@ await evaluate(`(async () => {
   miniCartBlock.className = 'commerce-mini-cart';
   const stateBlock = document.createElement('div');
   stateBlock.className = 'commerce-cart';
+  const confirmationBlock = document.createElement('div');
+  confirmationBlock.className = 'commerce-checkout';
+  confirmationBlock.style.width = '364px';
+  const confirmationList = document.createElement('div');
+  confirmationList.className = 'order-confirmation__order-product-list';
+  const confirmationItem = document.createElement('div');
+  confirmationItem.className = 'dropin-cart-item';
+  const confirmationItemWrapper = document.createElement('div');
+  confirmationItemWrapper.className = 'dropin-cart-item__wrapper';
+  const confirmationImage = document.createElement('div');
+  confirmationImage.className = 'dropin-cart-item__image';
+  const confirmationFooter = document.createElement('div');
+  confirmationFooter.className = 'dropin-cart-item__footer';
+  confirmationItemWrapper.append(confirmationImage, confirmationFooter);
+  confirmationItem.append(confirmationItemWrapper);
+  confirmationList.append(confirmationItem);
+  const confirmationInfo = document.createElement('div');
+  confirmationInfo.className = 'order-confirmation__booking-information';
+  confirmationBlock.append(confirmationList, confirmationInfo);
   const title = document.createElement('h1');
   title.textContent = 'Cart booking presenter browser verification';
   const cartHeading = document.createElement('h2');
@@ -173,6 +195,8 @@ await evaluate(`(async () => {
   miniHeading.textContent = 'Mini-cart';
   const statesHeading = document.createElement('h2');
   statesHeading.textContent = 'Fallback states';
+  const confirmationHeading = document.createElement('h2');
+  confirmationHeading.textContent = 'Order confirmation';
   document.body.classList.add('appear');
   document.querySelector('main').replaceChildren(
     title,
@@ -180,6 +204,8 @@ await evaluate(`(async () => {
     cartBlock,
     miniHeading,
     miniCartBlock,
+    confirmationHeading,
+    confirmationBlock,
     statesHeading,
     stateBlock,
   );
@@ -230,6 +256,27 @@ await evaluate(`(async () => {
       quantity: 3,
     }, { labels, locale: 'en', surface: 'cart' }),
   );
+  confirmationInfo.append(
+    renderCartBookingPanel({
+      cartItemUid: 'confirmed',
+      correlationStatus: 'linked',
+      event,
+      quantity: 4,
+      sku: 'event-sku',
+    }, { labels, locale: 'en', surface: 'confirmation' }),
+    renderCartBookingPanel({
+      cartItemUid: 'confirmation-fallback',
+      correlationStatus: 'unavailable',
+      quantity: 3,
+      sku: 'fallback-event-sku',
+    }, { labels, locale: 'en', surface: 'confirmation' }),
+    renderCartBookingPanel({
+      cartItemUid: 'confirmation-missing',
+      correlationStatus: 'missing',
+      quantity: 1,
+      sku: 'missing-event-sku',
+    }, { labels, locale: 'en', surface: 'confirmation' }),
+  );
 
   window.__cartBookingReport = {
     commerceCalls,
@@ -244,6 +291,15 @@ const desktop = await evaluate(`({
     .map((element) => element.textContent.trim()),
   cartText: document.querySelector('.commerce-cart .event-cart-booking')
     ?.innerText.trim(),
+  confirmationText: document.querySelector(
+    '.commerce-checkout .order-confirmation__booking-information',
+  )?.innerText.trim(),
+  confirmationItemWidth: document.querySelector(
+    '.commerce-checkout .dropin-cart-item__wrapper',
+  )?.getBoundingClientRect().width,
+  confirmationPanelWidth: document.querySelector(
+    '.commerce-checkout .order-confirmation__booking-information .event-cart-booking--confirmation',
+  )?.getBoundingClientRect().width,
   definitionLists: document.querySelectorAll('.event-cart-booking dl').length,
   documentWidth: document.documentElement.scrollWidth,
   headings: [...document.querySelectorAll('.event-cart-booking h3')]
@@ -259,15 +315,30 @@ assert.equal(desktop.commerceCalls, 1);
 assert.equal(desktop.enrichmentCalls, 1);
 assert.equal(desktop.ordinaryProductAppended, false);
 assert.match(desktop.cartText, /Organizer/);
+assert.match(desktop.confirmationText, /Adobe Events/);
+assert.match(desktop.confirmationText, /City Hall/);
+assert.match(desktop.confirmationText, /Tickets\s*4/);
+assert.match(
+  desktop.confirmationText,
+  /emailed to the address used for this order/,
+);
+assert.match(desktop.confirmationText, /contact support and provide your order number/);
+assert.equal(
+  desktop.confirmationPanelWidth >= desktop.confirmationItemWidth * 0.95,
+  true,
+);
 assert.doesNotMatch(desktop.miniCartText, /Organizer/);
 assert.doesNotMatch(
-  `${desktop.cartText}${desktop.miniCartText}`,
+  `${desktop.cartText}${desktop.miniCartText}${desktop.confirmationText}`,
   /opaque-intent-must-not-render/,
 );
 assert.equal(desktop.documentWidth <= desktop.viewportWidth, true);
-assert.equal(desktop.definitionLists, 4);
-assert.equal(desktop.alerts.length, 1);
+assert.equal(desktop.definitionLists, 7);
+assert.equal(desktop.alerts.length, 2);
 await captureScreenshot('cart-booking-display-desktop');
+await evaluate(`document.querySelector('.commerce-checkout')
+  .scrollIntoView({ block: 'start' })`);
+await captureScreenshot('checkout-success-booking-display-desktop');
 
 await send('Emulation.setDeviceMetricsOverride', {
   deviceScaleFactor: 2,
@@ -283,7 +354,7 @@ const mobile = await evaluate(`({
 })`);
 assert.equal(mobile.documentWidth <= mobile.viewportWidth, true);
 assert.equal(mobile.panelWidths.every((width) => width <= mobile.viewportWidth), true);
-await captureScreenshot('cart-booking-display-mobile');
+await captureScreenshot('checkout-success-booking-display-mobile');
 
 const { nodes } = await send('Accessibility.getFullAXTree');
 const accessibility = nodes

@@ -7,6 +7,7 @@ import { initReCaptcha } from '@dropins/tools/recaptcha.js';
 
 // Order Dropin Modules
 import * as orderApi from '@dropins/storefront-order/api.js';
+import * as cartApi from '@dropins/storefront-cart/api.js';
 
 // Checkout Dropin Libraries
 import {
@@ -66,9 +67,15 @@ import {
 } from './constants.js';
 
 import { rootLink } from '../../scripts/commerce.js';
+import { createEventAppClient } from '../../scripts/event-app/client.js';
+import { getEventCartLines } from '../../scripts/event-app/cart.js';
+import {
+  createCheckoutBookingSnapshot,
+} from '../../scripts/event-app/cart-display.js';
 
 // Initializers
 import '../../scripts/initializers/account.js';
+import '../../scripts/initializers/cart.js';
 import '../../scripts/initializers/checkout.js';
 import '../../scripts/initializers/order.js';
 import '../../scripts/initializers/payment-services.js';
@@ -92,6 +99,12 @@ export default async function decorate(block) {
 
   const cartData = events.lastPayload('cart/initialized');
   redirectToCartIfEmpty(cartData);
+  const eventClient = createEventAppClient();
+  const bookingSnapshot = createCheckoutBookingSnapshot({
+    enrichEvents: (eventIds) => eventClient.enrich(eventIds),
+    fetchCartLines: (cartId) => getEventCartLines(cartApi.fetchGraphQl, cartId),
+  });
+  bookingSnapshot.update(cartData);
 
   // Container and component references
   let shippingForm;
@@ -310,7 +323,14 @@ export default async function decorate(block) {
 
     window.history.pushState({}, '', url);
 
-    await renderCheckoutSuccess(block, { orderData });
+    await renderCheckoutSuccess(block, {
+      bookingSummaries: bookingSnapshot.getSummaries(),
+      orderData,
+    });
+  }
+
+  function handleCartBookingData(data) {
+    bookingSnapshot.update(data);
   }
 
   events.on('authenticated', handleAuthenticated);
@@ -318,6 +338,8 @@ export default async function decorate(block) {
   events.on('checkout/updated', handleCheckoutUpdated);
   events.on('checkout/values', handleCheckoutValues);
   events.on('order/placed', handleOrderPlaced);
+  events.on('cart/initialized', handleCartBookingData, { eager: true });
+  events.on('cart/data', handleCartBookingData);
   events.on('cart/initialized', redirectToCartIfEmpty, { eager: true });
   events.on('cart/data', redirectToCartIfEmpty);
 }

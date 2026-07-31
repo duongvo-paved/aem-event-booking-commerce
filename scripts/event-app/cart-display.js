@@ -4,13 +4,18 @@ import {
   isEventProduct,
 } from './models.js';
 
-const SURFACES = new Set(['cart', 'mini-cart']);
+const PANEL_SURFACES = new Set(['cart', 'confirmation', 'mini-cart']);
+const PRESENTER_SURFACES = new Set(['cart', 'mini-cart']);
 const inFlightRequests = new Map();
 let headingSequence = 0;
 
 const FALLBACK_LABELS = Object.freeze({
   attention: 'Booking needs attention',
   attentionMessage: 'Remove this item and book the event again.',
+  confirmationAttentionMessage:
+    'Please contact support and provide your order number so we can check your booking.',
+  confirmationMessage:
+    'Your tickets are being prepared. A link to access them will be emailed to the address used for this order.',
   date: 'Date and time',
   heading: 'Booking information',
   linked: 'Booking linked',
@@ -36,6 +41,16 @@ export function getCartBookingLabels(placeholders) {
       placeholders,
       'CartEventBookingAttentionMessage',
       FALLBACK_LABELS.attentionMessage,
+    ),
+    confirmationAttentionMessage: getLabel(
+      placeholders,
+      'OrderConfirmationEventBookingAttentionMessage',
+      FALLBACK_LABELS.confirmationAttentionMessage,
+    ),
+    confirmationMessage: getLabel(
+      placeholders,
+      'OrderConfirmationEventBookingMessage',
+      FALLBACK_LABELS.confirmationMessage,
     ),
     date: getLabel(placeholders, 'EventDateLabel', FALLBACK_LABELS.date),
     heading: getLabel(
@@ -87,6 +102,7 @@ function createSummary(item, correlationStatus, event) {
     cartItemUid: item.uid,
     correlationStatus,
     quantity: item.quantity,
+    sku: item.topLevelSku || item.sku,
   };
   if (event) summary.event = event;
   return Object.freeze(summary);
@@ -94,6 +110,10 @@ function createSummary(item, correlationStatus, event) {
 
 function createUnavailableSummaries(items) {
   return items.map((item) => createSummary(item, 'unavailable'));
+}
+
+export function createCheckoutBookingFallbackSummaries(cartData) {
+  return Object.freeze(createUnavailableSummaries(getEventCartItems(cartData)));
 }
 
 /**
@@ -164,6 +184,38 @@ export function resetCartBookingRequestCache() {
   inFlightRequests.clear();
 }
 
+export function createCheckoutBookingSnapshot({
+  enrichEvents,
+  fetchCartLines,
+}) {
+  let revision = 0;
+  let summaries = Object.freeze([]);
+
+  async function update(cartData) {
+    revision += 1;
+    const currentRevision = revision;
+    summaries = createCheckoutBookingFallbackSummaries(cartData);
+
+    if (!summaries.length || typeof cartData?.id !== 'string') return;
+
+    try {
+      const loadedSummaries = await loadCartBookingSummaries({
+        cartData,
+        enrichEvents,
+        fetchCartLines,
+      });
+      if (currentRevision === revision) summaries = loadedSummaries;
+    } catch {
+      // Keep the synchronous, privacy-safe fallback without blocking checkout.
+    }
+  }
+
+  return Object.freeze({
+    getSummaries: () => summaries,
+    update,
+  });
+}
+
 export function getCartBookingPanelModel(
   summary,
   {
@@ -172,7 +224,9 @@ export function getCartBookingPanelModel(
     surface = 'cart',
   } = {},
 ) {
-  if (!SURFACES.has(surface)) throw new TypeError(`Unknown cart surface: ${surface}`);
+  if (!PANEL_SURFACES.has(surface)) {
+    throw new TypeError(`Unknown booking surface: ${surface}`);
+  }
 
   const rows = [];
   let message = labels.unavailable;
@@ -180,18 +234,24 @@ export function getCartBookingPanelModel(
   let description = null;
 
   if (summary.correlationStatus === 'linked') {
-    message = labels.linked;
+    message = surface === 'confirmation'
+      ? labels.confirmationMessage
+      : labels.linked;
     if (summary.event) {
       rows.push([labels.date, formatEventDateRange(summary.event, locale)]);
       rows.push([labels.venue, summary.event.venue.name]);
-      if (surface === 'cart') {
+      if (surface !== 'mini-cart') {
         rows.push([labels.organizer, summary.event.organizer]);
       }
     }
   } else if (summary.correlationStatus === 'missing') {
     message = labels.attention;
-    description = labels.attentionMessage;
+    description = surface === 'confirmation'
+      ? labels.confirmationAttentionMessage
+      : labels.attentionMessage;
     role = 'alert';
+  } else if (surface === 'confirmation') {
+    message = labels.confirmationMessage;
   }
 
   rows.push([labels.tickets, String(summary.quantity)]);
@@ -259,7 +319,9 @@ export function createCartBookingPresenter({
   locale = document.documentElement.lang || 'en',
   surface,
 }) {
-  if (!SURFACES.has(surface)) throw new TypeError(`Unknown cart surface: ${surface}`);
+  if (!PRESENTER_SURFACES.has(surface)) {
+    throw new TypeError(`Unknown cart surface: ${surface}`);
+  }
 
   const hostsByUid = new Map();
   let currentRevision = 0;

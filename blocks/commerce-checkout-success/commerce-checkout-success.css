@@ -51,6 +51,95 @@
   cursor: pointer;
 }
 
+.commerce-checkout .event-cart-booking--confirmation,
+.commerce-checkout-success .event-cart-booking--confirmation {
+  box-sizing: border-box;
+  container: confirmation-booking / inline-size;
+  display: block;
+  min-width: 0;
+  width: 100%;
+  margin-top: var(--spacing-small);
+  padding: var(--spacing-small);
+  border: 1px solid var(--color-neutral-400);
+  border-radius: var(--shape-border-radius-2);
+  background: var(--color-neutral-50);
+}
+
+.commerce-checkout .order-confirmation__booking-information,
+.commerce-checkout-success .order-confirmation__booking-information {
+  width: 100%;
+}
+
+.commerce-checkout .order-confirmation__booking-information-content,
+.commerce-checkout-success .order-confirmation__booking-information-content {
+  display: grid;
+  gap: var(--spacing-small);
+  width: 100%;
+}
+
+.commerce-checkout .order-confirmation__booking-information-content h2,
+.commerce-checkout-success .order-confirmation__booking-information-content h2 {
+  margin: 0;
+  font: var(--type-body-1-strong-font);
+}
+
+.commerce-checkout .order-confirmation__booking-information-content .event-cart-booking--confirmation,
+.commerce-checkout-success .order-confirmation__booking-information-content .event-cart-booking--confirmation {
+  margin-top: 0;
+}
+
+.commerce-checkout .event-cart-booking--confirmation h3,
+.commerce-checkout-success .event-cart-booking--confirmation h3 {
+  margin: 0 0 var(--spacing-xxsmall);
+  font: var(--type-body-1-strong-font);
+}
+
+.commerce-checkout .event-cart-booking--confirmation p,
+.commerce-checkout-success .event-cart-booking--confirmation p {
+  margin: 0 0 var(--spacing-xsmall);
+}
+
+.commerce-checkout .event-cart-booking--confirmation [role='alert'],
+.commerce-checkout-success .event-cart-booking--confirmation [role='alert'] {
+  color: var(--color-alert-800);
+  font: var(--type-body-2-strong-font);
+}
+
+.commerce-checkout .event-cart-booking--confirmation dl,
+.commerce-checkout-success .event-cart-booking--confirmation dl {
+  display: grid;
+  grid-template-columns: minmax(7rem, auto) minmax(0, 1fr);
+  gap: var(--spacing-xxsmall) var(--spacing-small);
+  margin: 0;
+}
+
+.commerce-checkout .event-cart-booking--confirmation dt,
+.commerce-checkout-success .event-cart-booking--confirmation dt {
+  color: var(--color-neutral-700);
+  font: var(--type-body-2-strong-font);
+}
+
+.commerce-checkout .event-cart-booking--confirmation dd,
+.commerce-checkout-success .event-cart-booking--confirmation dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+@container confirmation-booking (max-width: 360px) {
+  .commerce-checkout .event-cart-booking--confirmation dl,
+  .commerce-checkout-success .event-cart-booking--confirmation dl {
+    grid-template-columns: 1fr;
+    row-gap: 0;
+  }
+
+  .commerce-checkout .event-cart-booking--confirmation dd,
+  .commerce-checkout-success .event-cart-booking--confirmation dd {
+    margin-bottom: var(--spacing-xxsmall);
+  }
+}
+
 /* Hide empty blocks */
 .order-confirmation__block:empty {
   display: none;
@@ -73,5 +162,21 @@
 
   .order-confirmation__block .dropin-card {
     border: 0;
+  }
+
+  .commerce-checkout .event-cart-booking--confirmation,
+  .commerce-checkout-success .event-cart-booking--confirmation {
+    padding: var(--spacing-xsmall);
+  }
+
+  .commerce-checkout .event-cart-booking--confirmation dl,
+  .commerce-checkout-success .event-cart-booking--confirmation dl {
+    grid-template-columns: 1fr;
+    row-gap: 0;
+  }
+
+  .commerce-checkout .event-cart-booking--confirmation dd,
+  .commerce-checkout-success .event-cart-booking--confirmation dd {
+    margin-bottom: var(--spacing-xxsmall);
   }
 }

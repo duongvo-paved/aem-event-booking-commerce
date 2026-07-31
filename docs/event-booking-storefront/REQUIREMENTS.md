@@ -415,7 +415,7 @@ No optional venue fields are approved for v1. The venue object and both fields m
 
 ### 7.4 Create Booking Intent
 
-- Runtime action: currently deployed under `event-api/create-intent`
+- Runtime action: `booking-api/create-intent`
 - Authentication: none
 - Transport: JSON body, maximum 64 KiB, `Content-Type: application/json`
 - Quantity: integer 1–20
@@ -492,15 +492,53 @@ The parameter length, encoding, response headers, and error statuses remain prov
 
 ### 7.7 Contract Drift and Missing Contracts
 
-- Integration `REQUIREMENTS.md` v1.5 does not yet document the implemented `ticket-api/render` action or its public contract.
-- No Integration intent-replacement action currently supports EDS cart quantity/participant editing.
-- Current Integration requirements and projections do not yet define the approved Commerce discovery attributes or enforce the target v1 `venue` DTO.
-- Architecture names `booking-api/create-intent`, but current Runtime configuration places `create-intent` in `event-api`. EDS must use the deployed manifest, and documentation must be aligned.
-- Architecture names `ticket-api/verify`, but no verify action/configuration was found in the inspected Runtime configuration.
-- No public endpoint currently maps EDS-held `intent_ref` or checkout order context to the generated `booking_ref`; this does not block the confirmed standard Commerce confirmation plus asynchronous email flow.
-- The booking-status response still exposes `intent_ref` and does not provide the approved backend-generated HTTPS `qr_render_url`.
-- Browser-required CORS response headers or an approved same-origin proxy were not found in the inspected action response helper.
-- Exact HTTP methods/parameter encoding for enrichment/detail/get must be fixed in an OpenAPI or equivalent contract rather than inferred from Runtime parameter mapping.
+Review baseline: Integration `REQUIREMENTS.md` v2.4, `ARCHITECTURE.md`,
+Runtime manifests, public action source, and action tests inspected on 2026-07-30.
+Source alignment below is not deployment approval; every browser-consumed contract
+remains provisional until the versioned environment contract and deployed tests
+required by Sections 8 and 13 are approved.
+
+**Resolved in current Integration source:**
+
+- Integration requirements now document `ticket-api/render` and
+  `ticket-api/verify`; both actions are registered under `ticket-api` and have
+  method, input, response, security-header, and error-path tests.
+- `ticket-api/get` now returns the approved allowlisted booking projection,
+  excludes `intent_ref`, normalizes public statuses, adds an HTTPS
+  `qr_render_url` per ticket, and applies `Cache-Control: no-store`.
+- Integration requirements now define the five Commerce discovery attributes:
+  `is_event_ticket`, `external_event_id`, `event_date`, `event_type`, and
+  `event_status`, including the approved dropdown labels and pre-pagination
+  filtering intent. Tenant schema/query support and fixtures remain unverified.
+- A public mapping from `intent_ref` to `booking_ref` is intentionally not
+  required by the approved storefront flow. Integration creates `booking_ref`
+  during order correlation and delivers the hosted link asynchronously by email.
+- Integration architecture, Runtime manifest, action source, telemetry name, and
+  storefront configuration now consistently use `booking-api/create-intent`.
+
+**Open drift or missing contracts:**
+
+- No versioned OpenAPI or equivalent environment contract was found that fixes
+  development/stage URLs, action paths, allowed HTTP methods, parameter encoding,
+  request/response schemas, error behavior, contract version, and tested
+  deployment. Source and unit-test evidence therefore remains Provisional.
+- No Integration intent-replacement action supports the EDS cart
+  quantity/participant editing transaction required by EDS-FR-7.
+- Public event projection code passes `venue` through without enforcing the
+  approved v1 object containing exactly non-empty `name` and `address`; its tests
+  currently accept a venue containing only `name`.
+- Browser-required CORS response headers or an approved same-origin proxy were
+  not found in the public action response path. Per-environment EDS origin
+  allowlists and browser preflight/response tests remain required.
+- `event-api/enrich`, `event-api/detail`, and `ticket-api/get` do not enforce an
+  explicit HTTP method in action code. Their method and parameter transport
+  contracts must be fixed by the approved API specification and verified against
+  deployed Runtime behavior.
+- Integration `REQUIREMENTS.md` v2.4 contains internal status drift: its
+  implementation-state bullets still say the v1.7 filter attributes and v1.8
+  ticket projection are not implemented, while its handoff gate marks the ticket
+  projection resolved and current source/tests implement it. Integration must
+  reconcile those status statements before cross-repository approval.
 
 ## 8. Storefront Configuration Requirements
 

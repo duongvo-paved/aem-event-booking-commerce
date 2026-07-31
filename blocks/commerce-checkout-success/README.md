@@ -29,7 +29,7 @@ No localStorage keys are used by this block.
 ## Public API
 
 - `default export decorate(block)` — Renders the success view into the provided block element.
-- `export async function renderCheckoutSuccess(container, { orderData } = {})` — Renders the success view into `container`. Pass `orderData` to provide pre-fetched order data; otherwise the Order drop-in will fetch it when possible (not possible when placing an order as a guest using an email address that’s already associated with an existing account).
+- `export async function renderCheckoutSuccess(container, { orderData, bookingSummaries } = {})` — Renders the success view into `container`. Pass `orderData` to provide pre-fetched order data and privacy-safe `bookingSummaries` to display event details captured before the cart is reset. Otherwise the Order drop-in will fetch order data when possible (not possible when placing an order as a guest using an email address that’s already associated with an existing account).
 - `export function preloadCheckoutSuccess()` — Preloads the checkout success CSS. Call this before `renderCheckoutSuccess`.
 
 Example (programmatic):
@@ -52,6 +52,9 @@ await renderCheckoutSuccess(container, { orderData });
 - Renders order confirmation sections (header, status, shipping status, customer details, cost summary, product list, gift options).
 - Footer includes a "Continue shopping" button and a "Contact us" support link (from `SUPPORT_PATH`).
 - Product list integrates read-only Gift Options per item; product and swatch images attempt to use AEM Assets via SKU/label aliasing.
+- Event order items can display an in-memory booking summary with date/time, venue, organizer, ticket quantity, and asynchronous ticket-delivery guidance.
+- Booking summaries render in a dedicated full-width confirmation section so they are not constrained by the Order drop-in's product-column grid.
+- Booking references, booking contact data, and participant data are never rendered or persisted.
 
 ## DOM Structure
 
@@ -69,6 +72,7 @@ This block builds a scoped fragment that follows this structure:
     <div class="order-confirmation__order-cost-summary"></div>
     <div class="order-confirmation__gift-options"></div>
     <div class="order-confirmation__order-product-list"></div>
+    <div class="order-confirmation__booking-information"></div>
     <div class="order-confirmation__footer"></div>
   </div>
 </div>
@@ -83,11 +87,12 @@ This block builds a scoped fragment that follows this structure:
 - `OrderCostSummary` — Displays totals, taxes, discounts.
 - `OrderProductList` — Lists items in the order; integrates Gift Options (read-only) in item footer.
 - `GiftOptions` — Separate read-only gift options summary.
+- Booking information — Full-width event booking summaries in the confirmation sidebar.
 - Footer — "Continue shopping" button and support link.
 
 ## Slots and Customization
 
-- Product list uses a `Footer` slot to render read-only `GiftOptions` per item.
+- Product list uses a `Footer` slot for read-only `GiftOptions` per item.
 - `CartSummaryItemImage` slot attempts to render images from AEM Assets using SKU as alias.
 - Swatch images attempt AEM Assets by label alias with default sizing.
 - Header Sign Up action opens a modal that renders the Auth `SignUp` container and uses privacy policy consent slots from `scripts/commerce.js`.

@@ -36,7 +36,10 @@ The POC will validate the feasibility of the following core booking type:
 
 Integration and Checkout must use the same Adobe Developer Console Project, Workspace, Runtime namespace, and App Builder Database region (`aus`). Integration owns the shared `events` schema, indexes, migrations, and retention purge. Checkout may update `events` only through its authenticated Admin actions and the shared optimistic-concurrency contract.
 
-Integration reserves the Runtime packages `product-commerce`, `order-commerce`, `event-api`, and `ticket-api`. Checkout reserves `checkout-admin`; neither repository may reuse the other application's package, action, trigger, rule, API, or registration names.
+Integration reserves the Runtime packages `product-commerce`, `order-commerce`,
+`event-api`, `booking-api`, and `ticket-api`. Checkout reserves `checkout-admin`;
+neither repository may reuse the other application's package, action, trigger,
+rule, API, or registration names.
 
 Before deployment, inventory the selected workspace and its Runtime entities. Deploy Integration first when a schema/index migration is required so its `post-app-deploy` hook establishes the compatible indexes before Checkout writes shared data. Deploy Checkout only after that hook succeeds. Rollbacks use the same order when they include a schema contract change.
 

@@ -42,6 +42,10 @@ import '../../scripts/initializers/order.js';
 // Local modal helper
 import createModal from '../modal/modal.js';
 import { loadCSS } from '../../scripts/aem.js';
+import {
+  getCartBookingLabels,
+  renderCartBookingPanel,
+} from '../../scripts/event-app/cart-display.js';
 
 // ----------------------------------------------------------------------------
 // Local selectors and fragments (order confirmation only)
@@ -56,6 +60,7 @@ const selectors = Object.freeze({
     orderCostSummary: '.order-confirmation__order-cost-summary',
     giftOptions: '.order-confirmation__gift-options',
     orderProductList: '.order-confirmation__order-product-list',
+    bookingInformation: '.order-confirmation__booking-information',
     footer: '.order-confirmation__footer',
     continueButton: '.order-confirmation-footer__continue-button',
   },
@@ -74,6 +79,7 @@ function createOrderConfirmationFragment() {
         <div class="order-confirmation__order-cost-summary order-confirmation__block"></div>
         <div class="order-confirmation__gift-options order-confirmation__block"></div>
         <div class="order-confirmation__order-product-list order-confirmation__block"></div>
+        <div class="order-confirmation__booking-information order-confirmation__block"></div>
         <div class="order-confirmation__footer order-confirmation__block"></div>
       </div>
     </div>
@@ -196,6 +202,45 @@ async function renderOrderProductList(container) {
   })(container);
 }
 
+function renderBookingInformation(
+  container,
+  {
+    bookingSummaries = [],
+    labels,
+    orderData,
+  } = {},
+) {
+  container.replaceChildren();
+  if (!bookingSummaries.length) return;
+
+  const bookingLabels = getCartBookingLabels(labels);
+  const locale = document.documentElement.lang || 'en';
+  const quantitiesBySku = new Map(
+    (orderData?.items || [])
+      .filter((item) => typeof item?.productSku === 'string')
+      .map((item) => [item.productSku, item.totalQuantity]),
+  );
+  const section = document.createElement('section');
+  section.className = 'order-confirmation__booking-information-content';
+  const heading = document.createElement('h2');
+  heading.textContent = bookingLabels.heading;
+  section.append(heading);
+
+  bookingSummaries.forEach((summary) => {
+    if (typeof summary?.sku !== 'string' || !summary.sku) return;
+    section.append(renderCartBookingPanel({
+      ...summary,
+      quantity: quantitiesBySku.get(summary.sku) ?? summary.quantity,
+    }, {
+      labels: bookingLabels,
+      locale,
+      surface: 'confirmation',
+    }));
+  });
+
+  if (section.children.length > 1) container.append(section);
+}
+
 async function renderOrderGiftOptions(container) {
   return CartProvider.render(GiftOptions, {
     view: 'order',
@@ -220,7 +265,13 @@ async function renderOrderConfirmationFooterButton(container) {
   })(container);
 }
 
-async function renderCheckoutSuccessContent(container, { orderData } = {}) {
+async function renderCheckoutSuccessContent(
+  container,
+  {
+    bookingSummaries = [],
+    orderData,
+  } = {},
+) {
   // Register event handler for authenticated event
   events.on('authenticated', handleAuthenticated);
 
@@ -241,6 +292,7 @@ async function renderCheckoutSuccessContent(container, { orderData } = {}) {
   const $orderCostSummary = getOrderElement(selectors.orderConfirmation.orderCostSummary);
   const $orderGiftOptions = getOrderElement(selectors.orderConfirmation.giftOptions);
   const $orderProductList = getOrderElement(selectors.orderConfirmation.orderProductList);
+  const $bookingInformation = getOrderElement(selectors.orderConfirmation.bookingInformation);
   const $orderConfirmationFooter = getOrderElement(selectors.orderConfirmation.footer);
 
   container.replaceChildren(orderConfirmationFragment);
@@ -261,6 +313,11 @@ async function renderCheckoutSuccessContent(container, { orderData } = {}) {
     renderOrderProductList($orderProductList),
     renderOrderGiftOptions($orderGiftOptions),
   ]);
+  renderBookingInformation($bookingInformation, {
+    bookingSummaries,
+    labels,
+    orderData,
+  });
 
   // Footer content and continue button
   $orderConfirmationFooter.innerHTML = createOrderConfirmationFooter(rootLink(SUPPORT_PATH));
@@ -274,8 +331,17 @@ export function preloadCheckoutSuccess() {
   return loadCSS(`${window.hlx.codeBasePath}/blocks/commerce-checkout-success/commerce-checkout-success.css`);
 }
 
-export async function renderCheckoutSuccess(container, { orderData } = {}) {
-  return renderCheckoutSuccessContent(container, { orderData });
+export async function renderCheckoutSuccess(
+  container,
+  {
+    bookingSummaries = [],
+    orderData,
+  } = {},
+) {
+  return renderCheckoutSuccessContent(container, {
+    bookingSummaries,
+    orderData,
+  });
 }
 
 export default async function decorate(block) {

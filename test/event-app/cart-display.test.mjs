@@ -5,6 +5,8 @@ import test from 'node:test';
 
 import {
   createCartBookingPresenter,
+  createCheckoutBookingFallbackSummaries,
+  createCheckoutBookingSnapshot,
   getCartBookingLabels,
   getCartBookingPanelModel,
   loadCartBookingSummaries,
@@ -169,6 +171,7 @@ test('distinguishes failed correlation from failed optional enrichment', async (
     cartItemUid: 'one',
     correlationStatus: 'unavailable',
     quantity: 3,
+    sku: 'sku-one',
   }]);
 
   const linked = await loadCartBookingSummaries({
@@ -182,10 +185,11 @@ test('distinguishes failed correlation from failed optional enrichment', async (
     cartItemUid: 'one',
     correlationStatus: 'linked',
     quantity: 3,
+    sku: 'sku-one',
   }]);
 });
 
-test('builds complete cart and compact mini-cart panel models', () => {
+test('builds cart, mini-cart, and confirmation panel models', () => {
   const summary = {
     cartItemUid: 'one',
     correlationStatus: 'linked',
@@ -202,11 +206,64 @@ test('builds complete cart and compact mini-cart panel models', () => {
     locale: 'en',
     surface: 'mini-cart',
   });
+  const confirmation = getCartBookingPanelModel(summary, {
+    labels,
+    locale: 'en',
+    surface: 'confirmation',
+  });
 
   assert.equal(full.rows.some(([label]) => label === 'Organizer'), true);
   assert.equal(compact.rows.some(([label]) => label === 'Organizer'), false);
+  assert.equal(confirmation.rows.some(([label]) => label === 'Organizer'), true);
   assert.deepEqual(full.rows.at(-1), ['Tickets', '2']);
   assert.deepEqual(compact.rows.at(-1), ['Tickets', '2']);
+  assert.match(confirmation.message, /emailed to the address used for this order/);
+});
+
+test('creates immediate checkout fallbacks without sensitive correlation data', () => {
+  const summaries = createCheckoutBookingFallbackSummaries(cartData([
+    { ...cartItem('one', 2), topLevelSku: 'event-ticket-sku' },
+    {
+      productAttributes: [{ code: 'Is Event Ticket', value: 'No' }],
+      quantity: 4,
+      sku: 'ordinary-sku',
+      uid: 'ordinary',
+    },
+  ]));
+
+  assert.deepEqual(summaries, [{
+    cartItemUid: 'one',
+    correlationStatus: 'unavailable',
+    quantity: 2,
+    sku: 'event-ticket-sku',
+  }]);
+  assert.doesNotMatch(JSON.stringify(summaries), /opaque-intent|participant|contact/i);
+});
+
+test('checkout snapshot enriches in the background and ignores stale responses', async () => {
+  const firstRequest = deferred();
+  const secondRequest = deferred();
+  let call = 0;
+  const snapshot = createCheckoutBookingSnapshot({
+    enrichEvents: async () => new Map([['event-1', event]]),
+    fetchCartLines: async () => {
+      call += 1;
+      return call === 1 ? firstRequest.promise : secondRequest.promise;
+    },
+  });
+
+  const firstUpdate = snapshot.update(cartData([cartItem('one', 1)]));
+  assert.equal(snapshot.getSummaries()[0].correlationStatus, 'unavailable');
+
+  const secondUpdate = snapshot.update(cartData([cartItem('one', 3)]));
+  secondRequest.resolve([linkedLine('one')]);
+  await secondUpdate;
+  assert.equal(snapshot.getSummaries()[0].quantity, 3);
+  assert.equal(snapshot.getSummaries()[0].correlationStatus, 'linked');
+
+  firstRequest.resolve([linkedLine('one')]);
+  await firstUpdate;
+  assert.equal(snapshot.getSummaries()[0].quantity, 3);
 });
 
 test('renders semantic status, warning, and definition-list content without sensitive data', () => {
@@ -230,6 +287,45 @@ test('renders semantic status, warning, and definition-list content without sens
     assert.doesNotMatch(
       panel.textContent,
       /opaque-intent-ref|ada@example\.com|participant/i,
+    );
+  } finally {
+    restoreDocument();
+  }
+});
+
+test('renders confirmation guidance and a post-purchase support warning', () => {
+  const restoreDocument = installFakeDocument();
+  try {
+    const linkedPanel = renderCartBookingPanel({
+      cartItemUid: 'one',
+      correlationStatus: 'linked',
+      event,
+      quantity: 2,
+      sku: 'event-sku',
+    }, {
+      labels,
+      locale: 'en',
+      surface: 'confirmation',
+    });
+    const missingPanel = renderCartBookingPanel({
+      cartItemUid: 'two',
+      correlationStatus: 'missing',
+      quantity: 1,
+      sku: 'event-sku-2',
+    }, {
+      labels,
+      locale: 'en',
+      surface: 'confirmation',
+    });
+
+    assert.match(linkedPanel.textContent, /City Hall/);
+    assert.match(linkedPanel.textContent, /Adobe Events/);
+    assert.match(linkedPanel.textContent, /emailed to the address used for this order/);
+    assert.equal(missingPanel.children[1].attributes.get('role'), 'alert');
+    assert.match(missingPanel.textContent, /contact support and provide your order number/);
+    assert.doesNotMatch(
+      `${linkedPanel.textContent}${missingPanel.textContent}`,
+      /opaque-intent|participant|contact@example/i,
     );
   } finally {
     restoreDocument();
