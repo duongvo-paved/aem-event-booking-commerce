@@ -51,6 +51,7 @@ import {
 } from '../../scripts/event-app/cart.js';
 import {
   renderEventBooking,
+  renderEventMetadata,
   renderEventUnavailable,
 } from './event-booking.js';
 
@@ -96,6 +97,7 @@ export default async function decorate(block) {
   const eventClient = createEventAppClient();
   const eventMode = isEventProduct(product);
   let eventBooking = null;
+  block.classList.toggle('product-details--event', eventMode);
 
   // Read itemUid from URL
   const urlParams = new URLSearchParams(window.location.search);
@@ -110,11 +112,13 @@ export default async function decorate(block) {
     <div class="product-details__wrapper">
       <div class="product-details__left-column">
         <div class="product-details__gallery"></div>
+        <div class="product-details__event-details"></div>
       </div>
       <div class="product-details__right-column">
         <div class="product-details__header"></div>
         <div class="product-details__price"></div>
         <div class="product-details__gallery"></div>
+        <div class="product-details__event-details-mobile"></div>
         <div class="product-details__short-description"></div>
         <div class="product-details__gift-card-options"></div>
         <div class="product-details__configuration">
@@ -136,6 +140,8 @@ export default async function decorate(block) {
   const $header = fragment.querySelector('.product-details__header');
   const $price = fragment.querySelector('.product-details__price');
   const $galleryMobile = fragment.querySelector('.product-details__right-column .product-details__gallery');
+  const $eventDetails = fragment.querySelector('.product-details__event-details');
+  const $eventDetailsMobile = fragment.querySelector('.product-details__event-details-mobile');
   const $shortDescription = fragment.querySelector('.product-details__short-description');
   const $options = fragment.querySelector('.product-details__options');
   const $quantity = fragment.querySelector('.product-details__quantity');
@@ -146,11 +152,6 @@ export default async function decorate(block) {
   const $attributes = fragment.querySelector('.product-details__attributes');
 
   block.replaceChildren(fragment);
-
-  const $eventBooking = document.createElement('div');
-  $eventBooking.className = 'product-details__event-booking';
-  const $configuration = block.querySelector('.product-details__configuration');
-  $configuration.after($eventBooking);
 
   const gallerySlots = {
     CarouselThumbnail: (ctx) => {
@@ -269,16 +270,21 @@ export default async function decorate(block) {
       || !product?.inStock
       || !product?.addToCartAllowed
     ) {
-      renderEventUnavailable($eventBooking, labels);
+      renderEventUnavailable($eventDetails, labels);
+      renderEventUnavailable($eventDetailsMobile, labels);
     } else {
       try {
         const event = await eventClient.getEvent(externalEventId);
         eventBooking = renderEventBooking({
           cartUrl: rootLink('/cart'),
-          container: $eventBooking,
+          container: $eventDetails,
           event,
           labels,
-          product,
+          inline: false,
+          onClose: () => {
+            $addToCart.querySelector('button')?.focus();
+          },
+          onSuccess: () => eventBooking?.close(),
           addToCart: async ({ form, pendingSubmission }) => {
             const values = pdpApi.getProductConfigurationValues();
             if (!pdpApi.isProductConfigurationValid()) {
@@ -299,13 +305,26 @@ export default async function decorate(block) {
             });
           },
         });
+        renderEventMetadata($eventDetailsMobile, event, labels);
+        addToCart = await UI.render(Button, {
+          children: labels.Global?.EventAddToCartLabel || 'Book and add to cart',
+          icon: h(Icon, { source: 'Cart' }),
+          onClick: () => eventBooking?.open(),
+        })($addToCart);
         const initialQuantity = pdpApi.getProductConfigurationValues()?.quantity;
         if (Number.isInteger(initialQuantity)) {
           eventBooking.setQuantity(initialQuantity);
         }
       } catch (error) {
         renderEventUnavailable(
-          $eventBooking,
+          $eventDetails,
+          labels,
+          error.type === EVENT_APP_ERROR_TYPES.NOT_FOUND
+            ? labels.Global?.EventDetailsUnavailable || 'Event details unavailable.'
+            : undefined,
+        );
+        renderEventUnavailable(
+          $eventDetailsMobile,
           labels,
           error.type === EVENT_APP_ERROR_TYPES.NOT_FOUND
             ? labels.Global?.EventDetailsUnavailable || 'Event details unavailable.'

@@ -213,6 +213,8 @@ export default async function decorate(block) {
     provider.render(Facets, {})($facets),
     // Product List
     provider.render(SearchResults, {
+      imageWidth: 400,
+      imageHeight: 250,
       routeProduct: (product) => getProductLink(product.urlKey, product.sku),
       onSearchResult: enrichEventProducts,
       slots: {
@@ -221,13 +223,24 @@ export default async function decorate(block) {
           const anchorWrapper = document.createElement('a');
           anchorWrapper.href = getProductLink(product.urlKey, product.sku);
 
+          const imageProps = {
+            ...defaultImageProps,
+            params: {
+              ...defaultImageProps.params,
+              width: 400,
+              height: 250,
+              crop: false,
+              fit: 'contain',
+            },
+          };
+
           tryRenderAemAssetsImage(ctx, {
             alias: product.sku,
-            imageProps: defaultImageProps,
+            imageProps,
             wrapper: anchorWrapper,
             params: {
-              width: defaultImageProps.width,
-              height: defaultImageProps.height,
+              width: 400,
+              height: 250,
             },
           });
         },

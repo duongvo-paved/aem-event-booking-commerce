@@ -70,6 +70,10 @@
   margin-block-end: var(--spacing-small);
 }
 
+.block.product-list-page .product-discovery-product-list__grid .dropin-product-item-card img {
+  object-fit: contain;
+}
+
 .block.product-list-page .search__event-status {
   grid-area: product-list;
 }

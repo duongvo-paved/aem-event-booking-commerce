@@ -1,7 +1,7 @@
 import { Render } from '@dropins/tools/lib.js';
 import { loadCSS, buildBlock } from '../../scripts/aem.js';
 
-export default async function createModal(contentNodes) {
+export default async function createModal(contentNodes, options = {}) {
   await loadCSS(`${window.hlx.codeBasePath}/blocks/modal/modal.css`);
   const dialog = document.createElement('dialog');
   dialog.setAttribute('tabindex', 1);
@@ -49,6 +49,7 @@ export default async function createModal(contentNodes) {
   dialog.addEventListener('close', () => {
     document.body.classList.remove('modal-open');
     block.remove();
+    options.onClose?.();
   });
 
   block.append(dialog);

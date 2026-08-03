@@ -7,6 +7,7 @@ import {
   normalizeBookingForm,
   validateBookingForm,
 } from '../../scripts/event-app/validation.js';
+import createModal from '../modal/modal.js';
 
 const MAXIMUM_DEMO_QUANTITY = 20;
 
@@ -58,23 +59,6 @@ function setInputError(field, message) {
   field.input.setAttribute('aria-invalid', message ? 'true' : 'false');
 }
 
-function readPrice(product) {
-  const amount = product?.prices?.final?.amount
-    ?? product?.price?.final?.amount?.value;
-  const currency = product?.prices?.final?.currency
-    ?? product?.price?.final?.amount?.currency;
-  if (!Number.isFinite(amount) || typeof currency !== 'string') return null;
-  return { amount, currency };
-}
-
-function formatPrice(price, quantity = 1) {
-  if (!price) return '';
-  return new Intl.NumberFormat(document.documentElement.lang || 'en', {
-    currency: price.currency,
-    style: 'currency',
-  }).format(price.amount * quantity);
-}
-
 function createMetadata(event, labels) {
   const section = document.createElement('section');
   section.className = 'event-booking__metadata';
@@ -116,69 +100,6 @@ function createMetadata(event, labels) {
 
   section.append(heading, list);
   return section;
-}
-
-function createOrderSummary(product, event, labels) {
-  const price = readPrice(product);
-  const section = document.createElement('section');
-  section.className = 'event-booking__summary';
-  section.setAttribute('aria-labelledby', 'event-order-summary-heading');
-
-  const heading = createTextElement(
-    'h2',
-    'event-booking__heading',
-    getLabel(labels, 'EventOrderSummaryHeading', 'Order summary'),
-  );
-  heading.id = 'event-order-summary-heading';
-
-  const list = document.createElement('dl');
-  const values = {
-    product: createTextElement('dd', 'event-booking__summary-value', product.name),
-    quantity: createTextElement('dd', 'event-booking__summary-value', '1'),
-    schedule: createTextElement(
-      'dd',
-      'event-booking__summary-value',
-      formatEventDateRange(event),
-    ),
-    total: createTextElement(
-      'dd',
-      'event-booking__summary-value',
-      formatPrice(price),
-    ),
-    unitPrice: createTextElement(
-      'dd',
-      'event-booking__summary-value',
-      formatPrice(price),
-    ),
-    venue: createTextElement(
-      'dd',
-      'event-booking__summary-value',
-      `${event.venue.name}, ${event.venue.address}`,
-    ),
-  };
-
-  [
-    [getLabel(labels, 'EventProductLabel', 'Event'), values.product],
-    [getLabel(labels, 'EventDateLabel', 'Date and time'), values.schedule],
-    [getLabel(labels, 'EventVenueLabel', 'Venue'), values.venue],
-    [getLabel(labels, 'EventQuantityLabel', 'Tickets'), values.quantity],
-    [getLabel(labels, 'EventUnitPriceLabel', 'Price per ticket'), values.unitPrice],
-    [getLabel(labels, 'EventTotalLabel', 'Total'), values.total],
-  ].forEach(([term, value]) => {
-    list.append(
-      createTextElement('dt', 'event-booking__summary-label', term),
-      value,
-    );
-  });
-
-  section.append(heading, list);
-  return {
-    element: section,
-    update(quantity) {
-      values.quantity.textContent = String(quantity);
-      values.total.textContent = formatPrice(price, quantity);
-    },
-  };
 }
 
 function createParticipantFields(index, labels) {
@@ -229,13 +150,19 @@ export function renderEventUnavailable(container, labels, message) {
   container.append(status);
 }
 
+export function renderEventMetadata(container, event, labels) {
+  container.replaceChildren(createMetadata(event, labels));
+}
+
 export function renderEventBooking({
   addToCart,
   cartUrl,
   container,
   event,
   labels,
-  product,
+  inline = true,
+  onClose,
+  onSuccess,
 }) {
   let quantity = 1;
   let participants = [];
@@ -319,8 +246,6 @@ export function renderEventBooking({
   consentError.setAttribute('aria-live', 'polite');
   consent.setAttribute('aria-describedby', consentError.id);
   consentWrapper.append(consent, consentLabel, consentError);
-
-  const summary = createOrderSummary(product, event, labels);
 
   const submit = document.createElement('button');
   submit.className = 'button event-booking__submit';
@@ -415,7 +340,6 @@ export function renderEventBooking({
     form.reset();
     quantity = 1;
     renderParticipants(quantity);
-    summary.update(quantity);
     pendingSubmission = null;
   }
 
@@ -474,6 +398,7 @@ export function renderEventBooking({
         'The event tickets were added to your cart.',
       );
       clearForm();
+      onSuccess?.();
     } catch (error) {
       showSubmissionError(error);
     } finally {
@@ -493,12 +418,43 @@ export function renderEventBooking({
     contact,
     participantsContainer,
     consentWrapper,
-    summary.element,
     submit,
   );
-  container.replaceChildren(metadata, form);
+
+  if (inline) {
+    container.replaceChildren(metadata, form);
+  } else {
+    container.replaceChildren(metadata);
+  }
+
+  let modal = null;
+
+  async function open() {
+    if (modal?.block?.isConnected) {
+      modal.showModal();
+      setTimeout(() => form.querySelector('input')?.focus(), 0);
+      return;
+    }
+
+    modal = await createModal([form], {
+      onClose: () => {
+        modal = null;
+        onClose?.();
+      },
+    });
+    modal.block.id = 'event-booking-modal';
+    modal.block.classList.add('event-booking-modal');
+    modal.showModal();
+    setTimeout(() => form.querySelector('input')?.focus(), 0);
+  }
+
+  function close() {
+    modal?.removeModal();
+  }
 
   return Object.freeze({
+    open,
+    close,
     setQuantity(nextQuantity) {
       if (
         !Number.isInteger(nextQuantity)
@@ -511,7 +467,6 @@ export function renderEventBooking({
       quantity = nextQuantity;
       pendingSubmission = null;
       renderParticipants(quantity);
-      summary.update(quantity);
       feedback.textContent = '';
     },
   });

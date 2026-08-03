@@ -245,6 +245,63 @@ report.retrySuccess = await evaluate(`({
       === window.__bookingTest.retryCalls[1].sourceRequestId,
 })`);
 
+await evaluate(`(async () => {
+  const container = document.createElement('div');
+  container.className = 'product-details__event-booking';
+  document.querySelector('main').replaceChildren(container);
+  const popupBooking = window.__bookingTest.renderEventBooking({
+    addToCart: async () => 'intent-ref-popup',
+    cartUrl: '/cart',
+    container,
+    event: window.__bookingTest.event,
+    inline: false,
+    labels: {},
+    onClose: () => {
+      window.__bookingTest.popupClosed = true;
+    },
+  });
+  window.__bookingTest.popupBooking = popupBooking;
+  await popupBooking.open();
+})()`);
+await waitFor('Boolean(document.querySelector("#event-booking-modal"))');
+
+report.popup = await evaluate(`({
+  dialogOpen: document.querySelector('#event-booking-modal dialog')?.open === true,
+  formInDialog: Boolean(document.querySelector(
+    '#event-booking-modal .event-booking__form',
+  )),
+  formInline: Boolean(document.querySelector(
+    '.product-details__event-booking > .event-booking__form',
+  )),
+  firstInputFocused:
+    document.activeElement?.name === 'contact-firstName',
+  noHorizontalOverflow: (() => {
+    const content = document.querySelector('#event-booking-modal .modal-content');
+    return content ? content.scrollWidth <= content.clientWidth : false;
+  })(),
+  fieldLayout: (() => {
+    const input = document.querySelector(
+      '#event-booking-modal [name="contact-firstName"]',
+    );
+    const field = input?.closest('.event-booking__field');
+    const contact = field?.closest('.event-booking__contact');
+    return {
+      contactColumns: contact ? getComputedStyle(contact).gridTemplateColumns : null,
+      fieldColumns: field ? getComputedStyle(field).gridTemplateColumns : null,
+      inputContained: input && field
+        ? input.getBoundingClientRect().right <= field.getBoundingClientRect().right
+        : false,
+      labelAboveInput: input && field
+        ? field.firstElementChild?.getBoundingClientRect().bottom
+          <= input.getBoundingClientRect().top
+        : false,
+    };
+  })(),
+})`);
+await evaluate('window.__bookingTest.popupBooking.close()');
+await waitFor('!document.querySelector("#event-booking-modal")');
+report.popup.closed = await evaluate('window.__bookingTest.popupClosed === true');
+
 await send('Emulation.setDeviceMetricsOverride', {
   deviceScaleFactor: 2,
   height: 844,
@@ -287,6 +344,20 @@ assert.deepEqual(report.retrySuccess, {
   formCleared: true,
   sourceRequestIdReused: true,
 });
+const popupAssertions = { ...report.popup };
+delete popupAssertions.fieldLayout;
+assert.deepEqual(popupAssertions, {
+  dialogOpen: true,
+  formInDialog: true,
+  formInline: false,
+  firstInputFocused: true,
+  noHorizontalOverflow: true,
+  closed: true,
+});
+assert.equal(report.popup.fieldLayout.contactColumns, '1fr 1fr');
+assert.match(report.popup.fieldLayout.fieldColumns, /px$/);
+assert.equal(report.popup.fieldLayout.inputContained, true);
+assert.equal(report.popup.fieldLayout.labelAboveInput, true);
 assert.deepEqual(report.mobile, {
   documentWidth: 390,
   labelledControls: true,
