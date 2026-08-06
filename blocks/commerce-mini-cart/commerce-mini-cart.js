@@ -22,6 +22,11 @@ import { fetchPlaceholders, rootLink, getProductLink } from '../../scripts/comme
 import { createEventAppClient } from '../../scripts/event-app/client.js';
 import { getEventCartLines } from '../../scripts/event-app/cart.js';
 import {
+  createEventCartRemovalController,
+  createEventItemRemoveAction,
+  renderCancellationWarning,
+} from '../../scripts/event-app/cart-removal.js';
+import {
   createCartBookingPresenter,
   getCartBookingLabels,
 } from '../../scripts/event-app/cart-display.js';
@@ -63,6 +68,35 @@ export default async function decorate(block) {
   const shadowWrapper = document.createElement('div');
   shadowWrapper.className = 'commerce-mini-cart__message-wrapper';
   shadowWrapper.appendChild(updateMessage);
+
+  const cancellationWarning = document.createElement('div');
+  cancellationWarning.className = 'commerce-mini-cart__cancellation-warning';
+  let cancellationAlert = null;
+
+  const removalController = createEventCartRemovalController({
+    cancelIntent: (payload) => eventClient.cancelIntent(payload),
+    fetchCartLines: (cartId) => getEventCartLines(Cart.fetchGraphQl, cartId),
+    getCart: () => Cart.getCartDataFromCache(),
+    onCancellationError: ({ retry }) => {
+      cancellationAlert = renderCancellationWarning(cancellationWarning, {
+        message: placeholders?.Global?.CartEventCancellationWarning,
+        retry,
+        retryLabel: placeholders?.Global?.Retry || 'Retry',
+      });
+    },
+    onCancellationSuccess: () => {
+      cancellationAlert?.remove();
+      cancellationAlert = null;
+    },
+    removeItem: (item) => Cart.updateProductsFromCart([{
+      quantity: 0,
+      uid: item.uid,
+    }]),
+  });
+  const eventItemRemoveAction = createEventItemRemoveAction({
+    controller: removalController,
+    label: placeholders?.Global?.CartRemoveItem || 'Remove',
+  });
 
   const showMessage = (message) => {
     updateMessage.textContent = message;
@@ -173,6 +207,9 @@ export default async function decorate(block) {
   }
 
   block.innerHTML = '';
+  const miniCartRoot = document.createElement('div');
+  miniCartRoot.className = 'commerce-mini-cart__content';
+  block.append(cancellationWarning, miniCartRoot);
 
   // Render MiniCart
   const createProductLink = (product) => getProductLink(product.url.urlKey, product.topLevelSku);
@@ -184,6 +221,7 @@ export default async function decorate(block) {
     undo: undo === 'true',
 
     slots: {
+      ItemRemoveAction: eventItemRemoveAction,
       ProductAttributes: bookingPresenter.ProductAttributes,
       Thumbnail: (ctx) => {
         const { item, defaultImageProps } = ctx;
@@ -221,10 +259,10 @@ export default async function decorate(block) {
         }
       },
     },
-  })(block);
+  })(miniCartRoot);
 
   // Find the products container and add the message div at the top
-  const productsContainer = block.querySelector('.cart-mini-cart__products');
+  const productsContainer = miniCartRoot.querySelector('.cart-mini-cart__products');
   if (productsContainer) {
     productsContainer.insertBefore(shadowWrapper, productsContainer.firstChild);
   } else {

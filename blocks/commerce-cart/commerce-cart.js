@@ -37,6 +37,11 @@ import { fetchPlaceholders, rootLink, getProductLink } from '../../scripts/comme
 import { createEventAppClient } from '../../scripts/event-app/client.js';
 import { getEventCartLines } from '../../scripts/event-app/cart.js';
 import {
+  createEventCartRemovalController,
+  createEventItemRemoveAction,
+  renderCancellationWarning,
+} from '../../scripts/event-app/cart-removal.js';
+import {
   createCartBookingPresenter,
   getCartBookingLabels,
 } from '../../scripts/event-app/cart-display.js';
@@ -95,6 +100,32 @@ export default async function decorate(block) {
   const $emptyCart = fragment.querySelector('.cart__empty-cart');
   const $giftOptions = fragment.querySelector('.cart__gift-options');
   const $rightColumn = fragment.querySelector('.cart__right-column');
+  let cancellationAlert = null;
+
+  const removalController = createEventCartRemovalController({
+    cancelIntent: (payload) => eventClient.cancelIntent(payload),
+    fetchCartLines: (cartId) => getEventCartLines(Cart.fetchGraphQl, cartId),
+    getCart: () => Cart.getCartDataFromCache(),
+    onCancellationError: ({ retry }) => {
+      cancellationAlert = renderCancellationWarning($notification, {
+        message: placeholders?.Global?.CartEventCancellationWarning,
+        retry,
+        retryLabel: placeholders?.Global?.Retry || 'Retry',
+      });
+    },
+    onCancellationSuccess: () => {
+      cancellationAlert?.remove();
+      cancellationAlert = null;
+    },
+    removeItem: (item) => Cart.updateProductsFromCart([{
+      quantity: 0,
+      uid: item.uid,
+    }]),
+  });
+  const eventItemRemoveAction = createEventItemRemoveAction({
+    controller: removalController,
+    label: placeholders?.Global?.CartRemoveItem || 'Remove',
+  });
 
   block.innerHTML = '';
   block.appendChild(fragment);
@@ -197,6 +228,7 @@ export default async function decorate(block) {
       enableRemoveItem: enableRemoveItem === 'true',
       undo: undo === 'true',
       slots: {
+        ItemRemoveAction: eventItemRemoveAction,
         ProductAttributes: bookingPresenter.ProductAttributes,
         Thumbnail: (ctx) => {
           const { item, defaultImageProps } = ctx;

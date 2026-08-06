@@ -103,6 +103,18 @@
   overflow-wrap: anywhere;
 }
 
+.commerce-cart .event-cart-cancellation-warning {
+  background: var(--color-alert-200);
+  border-left: var(--shape-border-width-4) solid var(--color-alert-800);
+  border-radius: var(--shape-border-radius-1);
+  margin-bottom: var(--spacing-small);
+  padding: var(--spacing-small);
+}
+
+.commerce-cart .event-cart-cancellation-warning p {
+  margin: 0 0 var(--spacing-xsmall);
+}
+
 @media (min-width: 768px) {
   .cart__wrapper {
     flex-direction: row;

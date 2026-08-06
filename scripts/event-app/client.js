@@ -98,6 +98,10 @@ export function createEventAppClient(config = getEventAppConfig()) {
       return normalizeIntentResponse(response);
     },
 
+    async cancelIntent(payload) {
+      await request(config, 'cancel-intent', payload);
+    },
+
     async enrich(externalEventIds) {
       const uniqueIds = [...new Set(externalEventIds)];
       const response = await request(config, 'enrich', {

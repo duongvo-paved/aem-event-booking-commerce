@@ -9,6 +9,7 @@ const ACTION_NAMES = Object.freeze([
   'enrich',
   'detail',
   'create-intent',
+  'cancel-intent',
   'ticket-get',
 ]);
 const ALLOWED_ENCODINGS = new Set(['json-body', 'query']);

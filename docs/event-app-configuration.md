@@ -31,6 +31,11 @@ or Runtime manifests without contract approval.
         "method": "POST",
         "encoding": "json-body"
       },
+      "cancel-intent": {
+        "url": "https://approved-runtime.example/api/v1/web/booking-api/cancel-intent",
+        "method": "POST",
+        "encoding": "json-body"
+      },
       "ticket-get": {
         "url": "https://approved-runtime.example/approved-ticket-path",
         "method": "GET",
@@ -66,6 +71,21 @@ The approved `create-intent` contract must include `commerce_cart_id` and
 
 This server-side uniqueness contract is required because browser checks cannot
 prevent concurrent requests from different tabs or devices.
+
+After a correlated event cart item is successfully removed, the storefront calls
+the idempotent `cancel-intent` action with the exact opaque correlation values:
+
+```json
+{
+  "intent_ref": "<intent-ref>",
+  "commerce_cart_id": "<cart-id>",
+  "commerce_sku": "EVT-204186505"
+}
+```
+
+The Integration action changes only an `awaiting_order` intent to `cancelled`.
+The storefront must preserve the intent reference and case-sensitive SKU and must
+never call cancellation before Commerce confirms removal.
 
 Never place IMS credentials, Database credentials, SendGrid keys, QR secrets,
 participant data, booking references, intent references, or ticket references in
