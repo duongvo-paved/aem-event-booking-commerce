@@ -284,7 +284,6 @@ export default async function decorate(block) {
           onClose: () => {
             $addToCart.querySelector('button')?.focus();
           },
-          onSuccess: () => eventBooking?.close(),
           addToCart: async ({ form, pendingSubmission }) => {
             const values = pdpApi.getProductConfigurationValues();
             if (!pdpApi.isProductConfigurationValid()) {

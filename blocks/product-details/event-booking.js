@@ -184,6 +184,7 @@ export function renderEventBooking({
   const feedback = createTextElement('div', 'event-booking__feedback', '');
   feedback.setAttribute('aria-live', 'assertive');
   feedback.setAttribute('role', 'status');
+  feedback.tabIndex = -1;
 
   const contact = document.createElement('fieldset');
   contact.className = 'event-booking__contact';
@@ -398,6 +399,7 @@ export function renderEventBooking({
         'The event tickets were added to your cart.',
       );
       clearForm();
+      setTimeout(() => feedback.focus(), 0);
       onSuccess?.();
     } catch (error) {
       showSubmissionError(error);

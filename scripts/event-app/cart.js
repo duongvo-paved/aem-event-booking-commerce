@@ -221,7 +221,13 @@ export async function addCorrelatedEventProduct({
     pendingSubmission.cartId = cart.id;
   }
 
-  const sku = values.parentSku || values.sku;
+  const canonicalValues = {
+    ...values,
+    ...(values.parentSku
+      ? { parentSku: commerceSku || values.parentSku }
+      : { sku: commerceSku || values.sku }),
+  };
+  const sku = canonicalValues.parentSku || canonicalValues.sku;
   if (!sku) {
     throw new EventAppError(
       EVENT_APP_ERROR_TYPES.INTEGRITY,
@@ -286,7 +292,7 @@ export async function addCorrelatedEventProduct({
       } else {
         const previousUids = lines.map((line) => line.uid);
         const cart = await cartApi.addProductsToCart([{
-          ...values,
+          ...canonicalValues,
           quantity: form.quantity,
         }]);
         const addedItem = findNewCartItem(cart, previousUids, sku);

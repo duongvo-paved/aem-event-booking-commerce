@@ -96,6 +96,11 @@ export default async function decorate(block) {
   const eventItemRemoveAction = createEventItemRemoveAction({
     controller: removalController,
     label: placeholders?.Global?.CartRemoveItem || 'Remove',
+    renderIcon: (container) => UI.render(Icon, {
+      'aria-hidden': 'true',
+      size: '32',
+      source: 'Trash',
+    })(container),
   });
 
   const showMessage = (message) => {
