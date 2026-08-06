@@ -133,6 +133,35 @@ test('creates one intent, adds one item, and correlates it through SaaS GraphQL'
   assert.equal(pendingSubmission.cartItemUid, 'line-uid');
 });
 
+test('preserves the canonical Commerce SKU case in the create-intent payload', async () => {
+  const cartApi = {
+    addProductsToCart: async () => ({
+      items: [{ sku: 'event-sku', topLevelSku: 'event-sku', uid: 'line-uid' }],
+    }),
+    fetchGraphQl: async (query) => (
+      query.includes('SetBookingIntent')
+        ? setAttributeResponse()
+        : cartLinesResponse()
+    ),
+    initializeCart: async () => ({ id: 'cart-id', items: [] }),
+    refreshCart: async () => null,
+    updateProductsFromCart: async () => null,
+  };
+
+  await addCorrelatedEventProduct({
+    cartApi,
+    commerceSku: 'Event-SKU',
+    createIntent: async (payload) => {
+      assert.equal(payload.commerce_sku, 'Event-SKU');
+      return { intentRef: 'intent-ref' };
+    },
+    eventId: 'event-id',
+    form,
+    pendingSubmission: createPending(),
+    values: { quantity: 1, sku: 'event-sku' },
+  });
+});
+
 test('blocks an already correlated SKU before creating another intent', async () => {
   let createIntentCalls = 0;
   let addCalls = 0;

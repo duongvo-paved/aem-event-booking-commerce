@@ -297,6 +297,7 @@ export default async function decorate(block) {
             const cartApi = await import('@dropins/storefront-cart/api.js');
             return addCorrelatedEventProduct({
               cartApi,
+              commerceSku: product.sku,
               createIntent: (payload) => eventClient.createIntent(payload),
               eventId: event.eventId,
               form,

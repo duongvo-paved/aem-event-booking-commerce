@@ -209,6 +209,7 @@ export async function setCartItemBookingIntent(
 
 export async function addCorrelatedEventProduct({
   cartApi,
+  commerceSku,
   createIntent,
   eventId,
   form,
@@ -247,7 +248,7 @@ export async function addCorrelatedEventProduct({
 
     const intent = await createIntent({
       commerce_cart_id: pendingSubmission.cartId,
-      commerce_sku: sku,
+      commerce_sku: commerceSku || sku,
       consent: form.consent,
       contact: form.contact,
       event_id: eventId,
