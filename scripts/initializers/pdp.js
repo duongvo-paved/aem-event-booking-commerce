@@ -122,7 +122,7 @@ async function preloadImageMiddleware(data) {
   if (image) {
     let url = image;
     let imageParams = {
-      ...IMAGES_SIZES,
+      width: IMAGES_SIZES.width,
     };
     if (isAemAssetsEnabled) {
       url = tryGenerateAemAssetsOptimizedUrl(image, data.sku, {});

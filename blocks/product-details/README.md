@@ -79,6 +79,10 @@ No events are emitted by this block. -->
    intent or adding quantity again.
 8. Event products do not use PDP cart-update mode; cart participant editing remains
    gated on the separate replacement-intent contract.
+9. Successful modal bookings close the popup and render the localized success message
+   below the PDP action buttons. The message remains until dismissed.
+10. Event galleries use full-width, uncropped media with dot navigation on desktop;
+    standard product galleries retain desktop thumbnail navigation.
 
 ### Error Handling
 

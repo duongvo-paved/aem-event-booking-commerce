@@ -240,6 +240,7 @@ report.retrySuccess = await evaluate(`({
   callCount: window.__bookingTest.retryCalls.length,
   feedback: document.querySelector('.event-booking__feedback').innerText.trim(),
   formCleared: document.querySelector('[name="contact-email"]').value === '',
+  formVisible: document.querySelector('.event-booking__form')?.hidden === false,
   sourceRequestIdReused:
     window.__bookingTest.retryCalls[0].sourceRequestId
       === window.__bookingTest.retryCalls[1].sourceRequestId,
@@ -249,6 +250,12 @@ await evaluate(`(async () => {
   const container = document.createElement('div');
   container.className = 'product-details__event-booking';
   document.querySelector('main').replaceChildren(container);
+  const success = document.createElement('div');
+  success.dataset.bookingSuccess = 'true';
+  success.setAttribute('aria-live', 'polite');
+  success.setAttribute('role', 'status');
+  success.tabIndex = -1;
+  document.querySelector('main').append(success);
   const popupBooking = window.__bookingTest.renderEventBooking({
     addToCart: async () => 'intent-ref-popup',
     cartUrl: '/cart',
@@ -259,7 +266,12 @@ await evaluate(`(async () => {
     onClose: () => {
       window.__bookingTest.popupClosed = true;
     },
+    onSuccess: (message) => {
+      success.textContent = message;
+      success.focus();
+    },
   });
+  window.__bookingTest.popupSuccess = success;
   window.__bookingTest.popupBooking = popupBooking;
   await popupBooking.open();
 })()`);
@@ -298,6 +310,34 @@ report.popup = await evaluate(`({
     };
   })(),
 })`);
+await evaluate(`(() => {
+  window.__bookingTest.fill();
+  document.querySelector('#event-booking-modal .event-booking__form').requestSubmit();
+})()`);
+await waitFor('window.__bookingTest.popupClosed === true');
+await waitFor(`document.querySelector('[data-booking-success]')
+  ?.innerText.includes('added to your cart')`);
+report.popup.success = await evaluate(`({
+  dialogOpen: document.querySelector('#event-booking-modal dialog')?.open === true,
+  externalMessage: document.querySelector('[data-booking-success]')
+    ?.innerText.trim(),
+  externalRole: document.querySelector('[data-booking-success]')
+    ?.getAttribute('role'),
+  externalLiveMode: document.querySelector('[data-booking-success]')
+    ?.getAttribute('aria-live'),
+  feedbackInsideModal: Boolean(document.querySelector(
+    '#event-booking-modal .event-booking__feedback',
+  )),
+  focusedExternalSuccess: document.activeElement === window.__bookingTest.popupSuccess,
+})`);
+await evaluate('window.__bookingTest.popupBooking.open()');
+await waitFor('Boolean(document.querySelector("#event-booking-modal"))');
+report.popup.reopened = await evaluate(`({
+  dialogOpen: document.querySelector('#event-booking-modal dialog')?.open === true,
+  email: document.querySelector(
+    '#event-booking-modal [name="contact-email"]',
+  )?.value,
+})`);
 await evaluate('window.__bookingTest.popupBooking.close()');
 await waitFor('!document.querySelector("#event-booking-modal")');
 report.popup.closed = await evaluate('window.__bookingTest.popupClosed === true');
@@ -327,6 +367,76 @@ report.accessibility = nodes
   }))
   .filter((node) => node.name);
 
+report.canonicalSku = await evaluate(`(async () => {
+  const { addCorrelatedEventProduct } = await import('/scripts/event-app/cart.js');
+  const observed = {};
+  const pendingSubmission = {
+    cartId: null,
+    cartItemUid: null,
+    intentRef: null,
+    sourceRequestId: 'source-request',
+    stage: 'pending-intent',
+  };
+  const cartApi = {
+    addProductsToCart: async ([item]) => {
+      observed.addSku = item.sku;
+      return {
+        items: [{
+          sku: 'Event-SKU',
+          topLevelSku: 'Event-SKU',
+          uid: 'line-uid',
+        }],
+      };
+    },
+    fetchGraphQl: async (query) => query.includes('SetBookingIntent')
+      ? {
+        data: {
+          setCustomAttributesOnCartItem: {
+            cart: {
+              id: 'cart-id',
+              itemsV2: {
+                items: [{
+                  custom_attributes: [{
+                    attribute_code: 'booking_intent_ref',
+                    value: 'intent-ref',
+                  }],
+                  uid: 'line-uid',
+                }],
+              },
+            },
+          },
+        },
+      }
+      : { data: { cart: { id: 'cart-id', itemsV2: { items: [] } } } },
+    initializeCart: async () => ({ id: 'cart-id', items: [] }),
+    refreshCart: async () => null,
+    updateProductsFromCart: async () => null,
+  };
+
+  await addCorrelatedEventProduct({
+    cartApi,
+    commerceSku: 'Event-SKU',
+    createIntent: async (payload) => {
+      observed.intentSku = payload.commerce_sku;
+      return { intentRef: 'intent-ref' };
+    },
+    eventId: 'event-id',
+    form: {
+      consent: true,
+      contact: { email: 'ada@example.test' },
+      participants: [{ firstName: 'Ada', lastName: 'Lovelace' }],
+      quantity: 1,
+    },
+    pendingSubmission,
+    values: { quantity: 1, sku: 'event-sku' },
+  });
+  return {
+    ...observed,
+    cartItemUid: pendingSubmission.cartItemUid,
+    stage: pendingSubmission.stage,
+  };
+})()`);
+
 assert.deepEqual(report.duplicate, {
   callCount: 1,
   emailRetained: true,
@@ -342,10 +452,13 @@ assert.deepEqual(report.retrySuccess, {
   callCount: 2,
   feedback: 'The event tickets were added to your cart.',
   formCleared: true,
+  formVisible: true,
   sourceRequestIdReused: true,
 });
 const popupAssertions = { ...report.popup };
 delete popupAssertions.fieldLayout;
+delete popupAssertions.success;
+delete popupAssertions.reopened;
 assert.deepEqual(popupAssertions, {
   dialogOpen: true,
   formInDialog: true,
@@ -358,10 +471,28 @@ assert.equal(report.popup.fieldLayout.contactColumns, '1fr 1fr');
 assert.match(report.popup.fieldLayout.fieldColumns, /px$/);
 assert.equal(report.popup.fieldLayout.inputContained, true);
 assert.equal(report.popup.fieldLayout.labelAboveInput, true);
+assert.deepEqual(report.popup.success, {
+  dialogOpen: false,
+  externalMessage: 'The event tickets were added to your cart.',
+  externalRole: 'status',
+  externalLiveMode: 'polite',
+  feedbackInsideModal: false,
+  focusedExternalSuccess: true,
+});
+assert.deepEqual(report.popup.reopened, {
+  dialogOpen: true,
+  email: '',
+});
 assert.deepEqual(report.mobile, {
   documentWidth: 390,
   labelledControls: true,
   viewportWidth: 390,
+});
+assert.deepEqual(report.canonicalSku, {
+  addSku: 'Event-SKU',
+  cartItemUid: 'line-uid',
+  intentSku: 'Event-SKU',
+  stage: 'correlated',
 });
 
 console.log(JSON.stringify(report, null, 2));

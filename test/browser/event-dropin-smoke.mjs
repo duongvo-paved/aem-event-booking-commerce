@@ -1,9 +1,11 @@
 import fs from 'node:fs/promises';
+import assert from 'node:assert/strict';
 
 /* eslint-disable no-await-in-loop, no-console */
 
 const DEVTOOLS_URL = 'http://127.0.0.1:9222';
 const BASE_URL = 'http://localhost:3000';
+const EVENT_PDP_PATH = '/products/brisbane-sculpture-festival/evt-204186505';
 const SCREENSHOT_DIR = 'scratch/test-results';
 
 const target = await fetch(`${DEVTOOLS_URL}/json/new?about:blank`, {
@@ -218,6 +220,136 @@ if (report.commerce.productLinks.length > 0) {
     'Boolean(document.querySelector(\'.event-booking__form\'))',
   );
 }
+
+await send('Emulation.setDeviceMetricsOverride', {
+  deviceScaleFactor: 1,
+  height: 900,
+  mobile: false,
+  width: 1440,
+});
+await navigate(EVENT_PDP_PATH);
+await waitFor('Boolean(document.querySelector(\'.product-details--event\'))');
+await waitFor(`document.querySelector(
+  '.product-details--event .product-details__gallery img',
+)?.getBoundingClientRect().width > 0`);
+report.commerce.eventPdp = {
+  desktop: await evaluate(`(() => {
+    const gallery = document.querySelector(
+      '.product-details--event .product-details__gallery',
+    );
+    const image = gallery?.querySelector('img');
+    const galleryBounds = gallery?.getBoundingClientRect();
+    const imageBounds = image?.getBoundingClientRect();
+    const expectedImageHeight = image?.naturalWidth
+      ? imageBounds.width * (image.naturalHeight / image.naturalWidth)
+      : 0;
+    const imageUrls = [
+      ...(gallery?.querySelectorAll('img, source') || []),
+    ].flatMap((element) => [element.src, element.srcset])
+      .filter(Boolean);
+    return {
+      eventMode: Boolean(gallery),
+      galleryWidth: Math.round(galleryBounds?.width || 0),
+      imageWidth: Math.round(imageBounds?.width || 0),
+      heightDelta: Math.round(Math.abs(
+        (imageBounds?.height || 0) - expectedImageHeight,
+      )),
+      leftEdgeDelta: Math.round(Math.abs(
+        (galleryBounds?.left || 0) - (imageBounds?.left || 0),
+      )),
+      rightEdgeDelta: Math.round(Math.abs(
+        (galleryBounds?.right || 0) - (imageBounds?.right || 0),
+      )),
+      usesMainImageArrows: Boolean(
+        gallery?.querySelector('.pdp-carousel--main-image-controls'),
+      ),
+      hasHeightInImageUrls: imageUrls.some((url) => /(?:[?&])height=/.test(url)),
+      attributesText: document.querySelector(
+        '.product-details--event .product-details__attributes',
+      )?.innerText.trim() || '',
+      hasThumbnailColumn: Boolean(
+        gallery?.querySelector('.pdp-carousel--thumbnailsColumn'),
+      ),
+      widthDelta: Math.round(Math.abs(
+        (galleryBounds?.width || 0) - (imageBounds?.width || 0),
+      )),
+      documentWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      viewportWidth: window.innerWidth,
+    };
+  })()`),
+};
+await captureScreenshot('event-pdp-gallery-desktop');
+
+await send('Emulation.setDeviceMetricsOverride', {
+  deviceScaleFactor: 2,
+  height: 844,
+  mobile: true,
+  width: 390,
+});
+await navigate(EVENT_PDP_PATH);
+await waitFor(`(() => {
+  const image = document.querySelector(
+    '.product-details--event .product-details__right-column .product-details__gallery img',
+  );
+  return image?.complete && image.naturalWidth > 0;
+})()`);
+report.commerce.eventPdp.mobile = await evaluate(`(() => {
+  const gallery = document.querySelector(
+    '.product-details--event .product-details__right-column .product-details__gallery',
+  );
+  const image = gallery?.querySelector('img');
+  const galleryBounds = gallery?.getBoundingClientRect();
+  const imageBounds = image?.getBoundingClientRect();
+    const expectedImageHeight = image?.naturalWidth
+      ? imageBounds.width * (image.naturalHeight / image.naturalWidth)
+      : 0;
+    const imageUrls = [
+      ...(gallery?.querySelectorAll('img, source') || []),
+    ].flatMap((element) => [element.src, element.srcset])
+      .filter(Boolean);
+    return {
+    galleryWidth: Math.round(galleryBounds?.width || 0),
+    imageWidth: Math.round(imageBounds?.width || 0),
+    heightDelta: Math.round(Math.abs(
+      (imageBounds?.height || 0) - expectedImageHeight,
+    )),
+    leftEdgeDelta: Math.round(Math.abs(
+      (galleryBounds?.left || 0) - (imageBounds?.left || 0),
+    )),
+      rightEdgeDelta: Math.round(Math.abs(
+        (galleryBounds?.right || 0) - (imageBounds?.right || 0),
+      )),
+      hasHeightInImageUrls: imageUrls.some((url) => /(?:[?&])height=/.test(url)),
+    documentWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+    viewportWidth: window.innerWidth,
+  };
+})()`);
+await captureScreenshot('event-pdp-gallery-mobile');
+
+assert.equal(report.commerce.eventPdp.desktop.eventMode, true);
+assert.equal(report.commerce.eventPdp.desktop.hasThumbnailColumn, false);
+assert.equal(report.commerce.eventPdp.desktop.usesMainImageArrows, true);
+assert.equal(report.commerce.eventPdp.desktop.hasHeightInImageUrls, false);
+assert.equal(report.commerce.eventPdp.desktop.attributesText.includes('External Event ID'), false);
+assert.equal(report.commerce.eventPdp.desktop.attributesText.includes('Is Event Ticket'), false);
+assert.ok(report.commerce.eventPdp.desktop.widthDelta <= 2);
+assert.ok(report.commerce.eventPdp.desktop.leftEdgeDelta <= 2);
+assert.ok(report.commerce.eventPdp.desktop.rightEdgeDelta <= 2);
+assert.ok(report.commerce.eventPdp.desktop.heightDelta <= 2);
+assert.equal(
+  report.commerce.eventPdp.desktop.documentWidth,
+  report.commerce.eventPdp.desktop.clientWidth,
+);
+assert.ok(report.commerce.eventPdp.mobile.leftEdgeDelta <= 2);
+assert.ok(report.commerce.eventPdp.mobile.rightEdgeDelta <= 2);
+assert.ok(report.commerce.eventPdp.mobile.heightDelta <= 2);
+assert.equal(report.commerce.eventPdp.mobile.hasHeightInImageUrls, false);
+assert.equal(
+  report.commerce.eventPdp.mobile.documentWidth,
+  report.commerce.eventPdp.mobile.clientWidth,
+);
 
 await send('Emulation.setDeviceMetricsOverride', {
   deviceScaleFactor: 1,

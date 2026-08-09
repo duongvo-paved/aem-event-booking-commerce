@@ -251,7 +251,7 @@ export function renderEventBooking({
   const submit = document.createElement('button');
   submit.className = 'button event-booking__submit';
   submit.type = 'submit';
-  submit.textContent = getLabel(labels, 'EventAddToCartLabel', 'Book and add to cart');
+  submit.textContent = getLabel(labels, 'EventAddToCartLabel', 'Add to Cart');
 
   function renderParticipants(nextQuantity) {
     const previousValues = participants.map((participant) => participant.read());
@@ -387,20 +387,19 @@ export function renderEventBooking({
       'Adding to cart…',
     );
 
+    let successMessage = null;
     try {
       const intentRef = await addToCart({
         form: normalizedForm,
         pendingSubmission,
       });
       pendingSubmission.intentRef = intentRef;
-      feedback.textContent = getLabel(
+      successMessage = getLabel(
         labels,
         'EventBookingAdded',
         'The event tickets were added to your cart.',
       );
       clearForm();
-      setTimeout(() => feedback.focus(), 0);
-      onSuccess?.();
     } catch (error) {
       showSubmissionError(error);
     } finally {
@@ -408,8 +407,23 @@ export function renderEventBooking({
       submit.textContent = getLabel(
         labels,
         'EventAddToCartLabel',
-        'Book and add to cart',
+        'Add to Cart',
       );
+    }
+
+    if (!successMessage) return;
+
+    if (inline) {
+      feedback.textContent = successMessage;
+      setTimeout(() => feedback.focus(), 0);
+    } else {
+      close();
+    }
+
+    try {
+      onSuccess?.(successMessage);
+    } catch (error) {
+      console.error('Failed to notify booking success:', error);
     }
   });
 

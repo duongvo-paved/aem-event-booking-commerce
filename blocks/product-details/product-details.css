@@ -51,6 +51,35 @@
   max-height: 80vh;
 }
 
+.product-details--event .product-details__gallery .pdp-carousel {
+  box-sizing: border-box;
+  max-height: none;
+  padding-inline: 0;
+  width: 100%;
+}
+
+.product-details--event .product-details__gallery .pdp-carousel__wrapper {
+  align-items: flex-start;
+  height: auto;
+}
+
+.product-details--event .product-details__gallery .pdp-carousel__slide {
+  grid-auto-rows: max-content;
+}
+
+.product-details--event .product-details__gallery .pdp-carousel__slide > *,
+.product-details--event .product-details__gallery .pdp-carousel__slide picture,
+.product-details--event .product-details__gallery .pdp-carousel__slide img {
+  height: auto;
+  max-height: none;
+}
+
+.product-details--event .product-details__gallery .pdp-carousel__slide img {
+  display: block;
+  object-fit: contain;
+  width: 100%;
+}
+
 .product-details__gallery .pdp-overlay__content .pdp-carousel,
 .product-details__gallery .pdp-overlay__content .pdp-carousel--thumbnailsRow
 {
@@ -79,8 +108,24 @@
   display: contents;
 }
 
+.product-details__booking-status {
+  grid-column: 1 / -1;
+}
+
+.product-details__booking-status:empty {
+  display: none;
+}
+
+.product-details__booking-status .dropin-in-line-alert--success {
+  gap: 0;
+}
+
 .product-details__attributes {
   margin-top: var(--spacing-xsmall);
+}
+
+.product-details__attributes:empty {
+  display: none;
 }
 
 .block.product-details .product-details__event-booking {

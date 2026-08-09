@@ -55,6 +55,13 @@ import {
   renderEventUnavailable,
 } from './event-booking.js';
 
+const EVENT_ATTRIBUTES_TO_HIDE = new Set([
+  'external_event_id',
+  'is_event_ticket',
+  'External Event ID',
+  'Is Event Ticket',
+]);
+
 /**
  * Checks if the page has prerendered product JSON-LD data
  * @returns {boolean} True if product JSON-LD exists and contains @type=Product
@@ -88,6 +95,35 @@ function updateAddToCartButtonText(addToCartInstance, inCart, labels) {
   }
 }
 
+function getDisplayableAttributes(attributes, eventMode = false) {
+  return (attributes || []).filter((attribute) => {
+    if (!attribute?.value || attribute.id?.startsWith('ac_')) {
+      return false;
+    }
+
+    return !eventMode || (
+      !EVENT_ATTRIBUTES_TO_HIDE.has(attribute.id)
+      && !EVENT_ATTRIBUTES_TO_HIDE.has(attribute.label)
+    );
+  });
+}
+
+function renderEventAttributes(ctx) {
+  const $list = document.createElement('ul');
+  const attributes = getDisplayableAttributes(ctx.data?.attributes, true);
+
+  attributes.forEach(({ label, value }) => {
+    const $item = document.createElement('li');
+    const $value = document.createElement('span');
+    $item.append(document.createTextNode(`${label}: `));
+    $value.textContent = value.toString();
+    $item.append($value);
+    $list.append($item);
+  });
+
+  ctx.replaceWith($list);
+}
+
 export default async function decorate(block) {
   const eventProduct = events.lastPayload('pdp/data') ?? null;
   // bug: the pdp sends an object with event data even if product is not found.
@@ -96,6 +132,10 @@ export default async function decorate(block) {
   const labels = await fetchPlaceholders();
   const eventClient = createEventAppClient();
   const eventMode = isEventProduct(product);
+  const displayableEventAttributes = getDisplayableAttributes(
+    product?.attributes,
+    eventMode,
+  );
   let eventBooking = null;
   block.classList.toggle('product-details--event', eventMode);
 
@@ -146,10 +186,15 @@ export default async function decorate(block) {
   const $options = fragment.querySelector('.product-details__options');
   const $quantity = fragment.querySelector('.product-details__quantity');
   const $giftCardOptions = fragment.querySelector('.product-details__gift-card-options');
+  const $configuration = fragment.querySelector('.product-details__configuration');
   const $addToCart = fragment.querySelector('.product-details__buttons__add-to-cart');
   const $wishlistToggleBtn = fragment.querySelector('.product-details__buttons__add-to-wishlist');
   const $description = fragment.querySelector('.product-details__description');
   const $attributes = fragment.querySelector('.product-details__attributes');
+
+  const $bookingStatus = document.createElement('div');
+  $bookingStatus.className = 'product-details__booking-status';
+  $configuration.append($bookingStatus);
 
   block.replaceChildren(fragment);
 
@@ -157,7 +202,7 @@ export default async function decorate(block) {
     CarouselThumbnail: (ctx) => {
       if (ctx.mediaType === 'image') {
         tryRenderAemAssetsImage(ctx, {
-          ...imageSlotConfig(ctx),
+          ...imageSlotConfig(ctx, false),
           wrapper: document.createElement('span'),
         });
       }
@@ -166,7 +211,7 @@ export default async function decorate(block) {
     CarouselMainImage: (ctx) => {
       if (ctx.mediaType === 'image') {
         tryRenderAemAssetsImage(ctx, {
-          ...imageSlotConfig(ctx),
+          ...imageSlotConfig(ctx, eventMode),
         });
       }
     },
@@ -193,12 +238,14 @@ export default async function decorate(block) {
     pdpRendered.render(ProductGallery, {
       controls: 'dots',
       arrows: true,
+      arrowsOnMainImage: eventMode,
       peak: false,
       gap: 'small',
       loop: false,
       videos: true, // Display videos if available
       imageParams: {
-        ...IMAGES_SIZES,
+        width: IMAGES_SIZES.width,
+        ...(eventMode ? {} : { height: IMAGES_SIZES.height }),
       },
 
       slots: gallerySlots,
@@ -206,14 +253,16 @@ export default async function decorate(block) {
 
     // Gallery (Desktop)
     pdpRendered.render(ProductGallery, {
-      controls: 'thumbnailsColumn',
+      controls: eventMode ? 'dots' : 'thumbnailsColumn',
       arrows: true,
-      peak: true,
+      arrowsOnMainImage: eventMode,
+      peak: !eventMode,
       gap: 'small',
       loop: false,
       videos: true, // Display videos if available
       imageParams: {
-        ...IMAGES_SIZES,
+        width: IMAGES_SIZES.width,
+        ...(eventMode ? {} : { height: IMAGES_SIZES.height }),
       },
 
       slots: gallerySlots,
@@ -253,7 +302,12 @@ export default async function decorate(block) {
     pdpRendered.render(ProductDescription, {})($description),
 
     // Attributes
-    pdpRendered.render(ProductAttributes, {})($attributes),
+    eventMode && displayableEventAttributes.length === 0
+      ? Promise.resolve(null)
+      : pdpRendered.render(
+        ProductAttributes,
+        eventMode ? { slots: { Attributes: renderEventAttributes } } : {},
+      )($attributes),
 
     // Wishlist button - WishlistToggle Container
     wishlistRender.render(WishlistToggle, {
@@ -262,6 +316,25 @@ export default async function decorate(block) {
   ]);
 
   let addToCart = null;
+  let bookingSuccessAlert = null;
+
+  async function renderBookingSuccess(message) {
+    bookingSuccessAlert?.remove();
+    bookingSuccessAlert = await UI.render(InLineAlert, {
+      type: 'success',
+      heading: message,
+      role: 'status',
+      'aria-live': 'polite',
+      tabIndex: -1,
+      onDismiss: () => {
+        bookingSuccessAlert?.remove();
+        bookingSuccessAlert = null;
+        $addToCart.querySelector('button')?.focus();
+      },
+    })($bookingStatus);
+    $bookingStatus.querySelector('[role="status"]')?.focus();
+  }
+
   if (eventMode) {
     const externalEventId = getExternalEventId(product);
     if (
@@ -283,6 +356,11 @@ export default async function decorate(block) {
           inline: false,
           onClose: () => {
             $addToCart.querySelector('button')?.focus();
+          },
+          onSuccess: (message) => {
+            renderBookingSuccess(message).catch((error) => {
+              console.error('Failed to render booking success alert:', error);
+            });
           },
           addToCart: async ({ form, pendingSubmission }) => {
             const values = pdpApi.getProductConfigurationValues();
@@ -307,7 +385,7 @@ export default async function decorate(block) {
         });
         renderEventMetadata($eventDetailsMobile, event, labels);
         addToCart = await UI.render(Button, {
-          children: labels.Global?.EventAddToCartLabel || 'Book and add to cart',
+          children: labels.Global?.EventAddToCartLabel || 'Add to Cart',
           icon: h(Icon, { source: 'Cart' }),
           onClick: () => eventBooking?.open(),
         })($addToCart);
@@ -633,15 +711,18 @@ function setMetaTags(product) {
  * @param ctx - The context of the slot.
  * @returns The configuration for the image slot.
  */
-function imageSlotConfig(ctx) {
+function imageSlotConfig(ctx, removeHeight = false) {
   const { data, defaultImageProps } = ctx;
+  const imageProps = removeHeight
+    ? { ...defaultImageProps, height: undefined }
+    : defaultImageProps;
   return {
     alias: data.sku,
-    imageProps: defaultImageProps,
+    imageProps,
 
     params: {
       width: defaultImageProps.width,
-      height: defaultImageProps.height,
+      ...(removeHeight ? {} : { height: defaultImageProps.height }),
     },
   };
 }
