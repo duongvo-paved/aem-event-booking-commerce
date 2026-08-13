@@ -17,6 +17,7 @@
   --color-brand-500: #454545;
   --color-brand-600: #383838;
   --color-brand-700: #2b2b2b;
+  --color-brand-paved-700: #096459;
   --color-neutral-50: #fff;
   --color-neutral-100: #fafafa;
   --color-neutral-200: #f5f5f5;
@@ -506,7 +507,42 @@ main .section.light,
 main .section.highlight {
   background-color: var(--color-neutral-100);
   margin: 0;
-  padding: var(--spacing-xbig) 0;
+  padding: var(--spacing-xxsmall) 0;
+}
+
+main .section.highlight h4 {
+  font-weight: bold;
+}
+
+main .section.highlight #adobe-event-app {
+  color: var(--color-brand-paved-700);
+  margin-top: var(--spacing-xxsmall);
+}
+
+main .section.highlight .default-content-wrapper p {
+  margin: 0;
+}
+
+main .section.highlight .cards-wrapper {
+  margin-top: var(--spacing-medium);
+}
+
+main .section.highlight .cards > ul > li {
+  border-color: var(--color-brand-paved-700);
+  border-width: var(--shape-border-width-2);
+}
+
+main .section.highlight .cards > ul > li:nth-child(2) {
+  background-color: var(--color-brand-paved-700);
+  color: var(--color-neutral-50);
+}
+
+main .section.highlight .cards > ul > li:nth-child(2) a {
+  color: inherit;
+}
+
+main .section.highlight .cards-card-body {
+  margin: var(--spacing-xxbig) var(--spacing-big) var(--spacing-big);
 }
 
 main .section[data-padding="default"] {

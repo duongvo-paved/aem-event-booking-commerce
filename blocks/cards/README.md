@@ -14,7 +14,7 @@ This block does not require any configuration parameters. Content is defined dir
 
 Each row in the block becomes a card with the following structure:
 - First column: Image (optional) - Automatically styled as `cards-card-image`
-- Subsequent columns: Body content - Automatically styled as `cards-card-body`
+- Subsequent columns: Body content - Automatically styled as `cards-card-body`. Use a semantic heading (`h2`-`h6`) for the card title; paragraphs, lists, links, and other rich text are styled as body content.
 
 Example authoring structure:
 ```
@@ -49,6 +49,7 @@ This block does not emit or listen to any custom events. -->
 
 - **Card Image**: Pictures are displayed with 4:3 aspect ratio and object-fit cover
 - **Card Body**: Content area with consistent padding and spacing
+- **Card Typography**: Semantic headings use the strong headline style, while the remaining rich text uses the standard body style
 - **Grid Gap**: Cards are separated by medium spacing (`var(--spacing-medium)`)
 - **Border**: Each card has a subtle border using neutral color scheme
 
