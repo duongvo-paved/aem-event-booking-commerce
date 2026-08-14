@@ -505,7 +505,6 @@ main > .section:first-of-type {
 /* section metadata - styles - start */
 main .section.light,
 main .section.highlight {
-  background-color: var(--color-neutral-100);
   margin: 0;
   padding: var(--spacing-xxsmall) 0;
 }
