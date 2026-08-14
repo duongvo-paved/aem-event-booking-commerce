@@ -7,8 +7,8 @@ The Product Details block provides comprehensive product detail page functionali
 For products with the Commerce `is_event_ticket` attribute, the block preserves the
 standard Commerce PDP content but replaces ordinary add-to-cart submission with an
 event-booking experience. The event experience loads allowlisted metadata using
-`external_event_id`, collects one participant per ticket, displays a
-Commerce-derived order summary, creates a booking intent, adds the product, and
+`external_event_id`, collects one attendee per ticket, displays a live
+pre-cart ticket summary, creates a booking intent, adds the product, and
 then applies `booking_intent_ref` using the SaaS
 `setCustomAttributesOnCartItem` mutation.
 
@@ -32,6 +32,7 @@ No localStorage keys are used by this block. -->
 #### Event Listeners
 
 - `events.on('pdp/valid', callback)` - Listens for product configuration validity changes to enable/disable add to cart button
+- `events.on('pdp/data', callback)` - Listens for product data changes to refresh the event summary price/name
 - `events.on('pdp/values', callback)` - Listens for product option value changes to update wishlist context
 - `events.on('wishlist/alert', callback)` - Listens for wishlist action alerts to show notifications
 - `events.on('cart/data', callback)` - Listens for cart data changes to determine update mode
@@ -67,7 +68,7 @@ No events are emitted by this block. -->
 1. Event mode is enabled only by the Commerce `is_event_ticket` attribute.
 2. Booking is disabled when Event App configuration, `external_event_id`,
    enrichment, Commerce stock, or add-to-cart eligibility is unavailable.
-3. Contact and participant values stay in active form memory only.
+3. Contact and attendee values stay in active form memory only.
 4. A stable `source_request_id` is reused for a logical retry.
 5. The active Commerce cart is checked before intent creation. A correlated SKU is
    blocked and links the shopper to the cart.
@@ -79,9 +80,22 @@ No events are emitted by this block. -->
    intent or adding quantity again.
 8. Event products do not use PDP cart-update mode; cart participant editing remains
    gated on the separate replacement-intent contract.
-9. Successful modal bookings close the popup and render the localized success message
-   below the PDP action buttons. The message remains until dismissed.
-10. Event galleries use full-width, uncropped media with dot navigation on desktop;
+9. Event details remain visible and the booking form is rendered in a native accordion
+   below them. The accordion is closed by default and moves between desktop/mobile
+   event-detail mounts without duplicating form state.
+10. The event-only quantity selector is rendered inside the booking form, starts at
+    zero, uses a compact right-aligned width, and keeps the incrementer border around
+    all controls. Its value controls attendee count and the live ticket summary; Add
+    to Cart remains disabled until at least one ticket is selected.
+11. The event summary is a collapsible, expanded-by-default pre-cart preview showing
+    ticket count, unit price, and total. It appears below the product description at
+    every responsive breakpoint.
+12. Consent and Add to Cart render below the Summary while remaining associated with
+   the accordion form; the cart action includes the default cart icon and keeps the
+   wishlist action beside it. Successful bookings close the accordion and render the
+   localized success message below Summary, reset the PDP quantity to zero, and keep
+   the message until dismissed.
+13. Event galleries use full-width, uncropped media with dot navigation on desktop;
     standard product galleries retain desktop thumbnail navigation.
 
 ### Error Handling

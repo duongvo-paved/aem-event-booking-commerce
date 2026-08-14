@@ -128,6 +128,325 @@
   display: none;
 }
 
+/* stylelint-disable no-descending-specificity */
+.block.product-details .product-details__event-content {
+  display: grid;
+  gap: var(--spacing-medium);
+}
+
+.block.product-details .event-booking-accordion {
+  border: var(--shape-border-width-1) solid var(--color-neutral-400);
+  border-radius: var(--shape-border-radius-2);
+}
+
+.block.product-details .event-booking-accordion__summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  font: var(--type-body-1-strong-font);
+  justify-content: space-between;
+  letter-spacing: var(--type-body-1-strong-letter-spacing);
+  list-style: none;
+  padding: var(--spacing-small);
+}
+
+.block.product-details .event-booking-accordion__summary::-webkit-details-marker {
+  display: none;
+}
+
+.block.product-details .event-booking-accordion__summary::after {
+  border: solid currentcolor;
+  border-width: 0 var(--shape-border-width-2) var(--shape-border-width-2) 0;
+  content: '';
+  height: 0.5rem;
+  transform: rotate(45deg);
+  transition: transform 160ms ease;
+  width: 0.5rem;
+}
+
+.block.product-details .event-booking-accordion[open] .event-booking-accordion__summary {
+  border-block-end: var(--shape-border-width-1) solid var(--color-neutral-400);
+}
+
+.block.product-details .event-booking-accordion[open] .event-booking-accordion__summary::after {
+  transform: rotate(225deg);
+}
+
+.block.product-details .event-booking-accordion__content {
+  min-width: 0;
+  padding: var(--spacing-small);
+}
+
+.block.product-details .event-booking-accordion .event-booking__form {
+  display: grid;
+  gap: var(--spacing-medium);
+  min-width: 0;
+}
+
+.block.product-details .event-booking-accordion .event-booking__heading {
+  display: none;
+}
+
+.block.product-details .event-booking-accordion .event-booking__quantity {
+  grid-column: 1 / -1;
+  justify-self: end;
+  max-width: 100%;
+  width: max-content;
+}
+
+.block.product-details .event-booking-accordion .event-booking__quantity .dropin-incrementer,
+.block.product-details .event-booking-accordion .event-booking__quantity .dropin-incrementer__content {
+  max-width: 100%;
+  width: max-content;
+}
+
+.block.product-details .event-booking-accordion .event-booking__quantity .dropin-incrementer__content {
+  grid-template-columns: repeat(3, var(--spacing-xxbig));
+}
+
+.block.product-details .event-booking-accordion .event-booking__contact,
+.block.product-details .event-booking-accordion .event-booking__participant {
+  border: var(--shape-border-width-1) solid var(--color-neutral-400);
+  border-radius: var(--shape-border-radius-1);
+  display: grid;
+  gap: var(--spacing-medium) var(--spacing-small);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  min-width: 0;
+  padding: var(--spacing-small);
+}
+
+.block.product-details .event-booking-accordion .event-booking__contact .event-booking__field:last-child {
+  grid-column: 1 / -1;
+}
+
+.block.product-details .event-booking-accordion .event-booking__contact legend,
+.block.product-details .event-booking-accordion .event-booking__participant legend {
+  font: var(--type-body-1-strong-font);
+  grid-column: 1 / -1;
+  letter-spacing: var(--type-body-1-strong-letter-spacing);
+  margin-block-end: var(--spacing-small);
+  padding: 0;
+}
+
+.block.product-details .event-booking-accordion .event-booking__participants {
+  display: grid;
+  gap: var(--spacing-medium);
+}
+
+.block.product-details .event-booking-accordion .event-booking__field {
+  align-content: start;
+  display: grid;
+  gap: var(--spacing-xxsmall);
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.block.product-details .event-booking-accordion .event-booking__field input {
+  box-sizing: border-box;
+  border: var(--shape-border-width-1) solid var(--color-neutral-500);
+  border-radius: var(--shape-border-radius-1);
+  font: inherit;
+  min-height: 3rem;
+  min-width: 0;
+  padding-inline: var(--spacing-xsmall);
+  width: 100%;
+}
+
+.block.product-details .event-booking-accordion .event-booking__field input:focus-visible,
+.block.product-details .event-booking-accordion .event-booking__consent input:focus-visible,
+.block.product-details .product-details__event-actions .event-booking__consent input:focus-visible {
+  outline: var(--shape-border-width-3) solid var(--color-brand-500);
+  outline-offset: var(--shape-border-width-2);
+}
+
+.block.product-details .event-booking-accordion .event-booking__field input[aria-invalid="true"] {
+  border-color: var(--color-alert-800);
+}
+
+.block.product-details .event-booking-accordion .event-booking__field-error,
+.block.product-details .event-booking-accordion .event-booking__feedback {
+  color: var(--color-alert-800);
+  font: var(--type-body-2-default-font);
+  letter-spacing: var(--type-body-2-default-letter-spacing);
+}
+
+.block.product-details .event-booking-accordion .event-booking__field-error:empty,
+.block.product-details .event-booking-accordion .event-booking__feedback:empty {
+  display: none;
+}
+
+.block.product-details .event-booking-accordion .event-booking__consent {
+  align-items: start;
+  display: grid;
+  gap: var(--spacing-xsmall);
+  grid-template-columns: auto 1fr;
+}
+
+.block.product-details .event-booking-accordion .event-booking__consent .event-booking__field-error {
+  grid-column: 2;
+}
+
+.block.product-details .event-booking-accordion .event-booking__submit {
+  justify-self: stretch;
+}
+
+.block.product-details .product-details__event-actions[hidden] {
+  display: none;
+}
+
+.block.product-details .product-details__event-actions {
+  display: grid;
+  gap: var(--spacing-medium);
+  margin-block-start: var(--spacing-medium);
+}
+
+.block.product-details .product-details__event-actions-content,
+.block.product-details .product-details__event-actions .event-booking__actions {
+  display: grid;
+  gap: var(--spacing-medium);
+}
+
+.block.product-details .product-details__event-actions .event-booking__buttons {
+  align-items: stretch;
+  display: grid;
+  gap: var(--spacing-small);
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.block.product-details .product-details__event-actions .event-booking__consent {
+  align-items: start;
+  display: grid;
+  gap: var(--spacing-xsmall);
+  grid-template-columns: auto 1fr;
+}
+
+.block.product-details .product-details__event-actions .event-booking__field-error {
+  color: var(--color-alert-800);
+  font: var(--type-body-2-default-font);
+  letter-spacing: var(--type-body-2-default-letter-spacing);
+}
+
+.block.product-details .product-details__event-actions .event-booking__consent .event-booking__field-error {
+  grid-column: 2;
+}
+
+.block.product-details .product-details__event-actions .event-booking__submit {
+  justify-self: stretch;
+}
+
+.event-booking__submit {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--spacing-xsmall);
+  justify-content: center;
+}
+
+.event-booking__submit-icon {
+  flex: 0 0 auto;
+  height: 24px;
+}
+
+.block.product-details .product-details__event-summary[hidden],
+.block.product-details .product-details__event-summary:empty {
+  display: none;
+}
+
+.block.product-details .event-summary {
+  border-block: var(--shape-border-width-1) solid var(--color-neutral-400);
+}
+
+.block.product-details .event-summary__header {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  font: var(--type-body-1-default-font);
+  justify-content: space-between;
+  letter-spacing: var(--type-body-1-default-letter-spacing);
+  list-style: none;
+  padding-block: var(--spacing-small);
+}
+
+.block.product-details .event-summary__header::-webkit-details-marker {
+  display: none;
+}
+
+.block.product-details .event-summary__header::after {
+  border: solid currentcolor;
+  border-width: var(--shape-border-width-2) var(--shape-border-width-2) 0 0;
+  content: '';
+  height: 0.5rem;
+  transform: rotate(-45deg);
+  transition: transform 160ms ease;
+  width: 0.5rem;
+}
+
+.block.product-details .event-summary:not([open]) .event-summary__header::after {
+  transform: rotate(135deg);
+}
+
+.block.product-details .event-summary__heading {
+  color: var(--color-neutral-800);
+}
+
+.block.product-details .event-summary__ticket-count {
+  font: var(--type-body-1-strong-font);
+  letter-spacing: var(--type-body-1-strong-letter-spacing);
+}
+
+.block.product-details .event-summary__content {
+  border-block-start: var(--shape-border-width-1) solid var(--color-neutral-400);
+  padding-block: var(--spacing-medium);
+}
+
+.block.product-details .event-summary__tickets-heading {
+  font: var(--type-body-1-strong-font);
+  letter-spacing: var(--type-body-1-strong-letter-spacing);
+  margin: 0 0 var(--spacing-small);
+  text-transform: uppercase;
+}
+
+.block.product-details .event-summary__line,
+.block.product-details .event-summary__total {
+  align-items: baseline;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-small);
+}
+
+.block.product-details .event-summary__line {
+  border-block-end: var(--shape-border-width-1) solid var(--color-neutral-400);
+  padding-block-end: var(--spacing-medium);
+}
+
+.block.product-details .event-summary__line-name {
+  overflow-wrap: anywhere;
+}
+
+.block.product-details .event-summary__line-price {
+  font: var(--type-body-2-strong-font);
+  letter-spacing: var(--type-body-2-strong-letter-spacing);
+  white-space: nowrap;
+}
+
+.block.product-details .event-summary__total {
+  padding-block-start: var(--spacing-medium);
+}
+
+.block.product-details .event-summary__total-value {
+  color: var(--color-neutral-800);
+  font: var(--type-headline-1-strong-font);
+  letter-spacing: var(--type-headline-1-strong-letter-spacing);
+}
+
+.block.product-details.product-details--event .product-details__buttons__add-to-cart {
+  display: none;
+}
+
+.block.product-details.product-details--event .product-details__configuration {
+  display: none;
+}
+
 .block.product-details .product-details__event-booking {
   margin-block-end: var(--spacing-xxbig);
 }
@@ -213,6 +532,7 @@
 }
 
 .event-booking-modal .event-booking__field {
+  align-content: start;
   display: grid;
   gap: var(--spacing-xxsmall);
   grid-template-columns: minmax(0, 1fr);
@@ -364,6 +684,11 @@
 }
 
 @media (max-width: 599px) {
+  .block.product-details .event-booking-accordion .event-booking__contact,
+  .block.product-details .event-booking-accordion .event-booking__participant {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .event-booking-modal .event-booking__contact,
   .event-booking-modal .event-booking__participant {
     grid-template-columns: minmax(0, 1fr);

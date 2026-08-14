@@ -214,7 +214,7 @@ if (report.commerce.productLinks.length > 0) {
   }
   report.commerce.productUrl = await evaluate('window.location.href');
   report.commerce.bookingText = await evaluate(
-    'document.querySelector(\'.product-details__event-booking\')?.innerText.trim() || \'\'',
+    'document.querySelector(\'.product-details__event-content\')?.innerText.trim() || \'\'',
   );
   report.commerce.bookingFormPresent = await evaluate(
     'Boolean(document.querySelector(\'.event-booking__form\'))',
@@ -229,6 +229,7 @@ await send('Emulation.setDeviceMetricsOverride', {
 });
 await navigate(EVENT_PDP_PATH);
 await waitFor('Boolean(document.querySelector(\'.product-details--event\'))');
+await waitFor('Boolean(document.querySelector(\'.event-booking-accordion .event-booking__form\'))');
 await waitFor(`document.querySelector(
   '.product-details--event .product-details__gallery img',
 )?.getBoundingClientRect().width > 0`);
@@ -276,9 +277,181 @@ report.commerce.eventPdp = {
       documentWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
       viewportWidth: window.innerWidth,
+      bookingAccordionClosed: document.querySelector(
+        '.event-booking-accordion',
+      )?.open === false,
+      quantityInsideAccordion: Boolean(document.querySelector(
+        '.event-booking-accordion .event-booking__quantity',
+      )),
+      quantityDefault: document.querySelector(
+        '.event-booking-accordion input[name="quantity"]',
+      )?.value,
+      quantityWidth: Math.round(document.querySelector(
+        '.event-booking-accordion .event-booking__quantity',
+      )?.getBoundingClientRect().width || 0),
+      quantityContentWidth: Math.round(document.querySelector(
+        '.event-booking-accordion .event-booking__quantity .dropin-incrementer__content',
+      )?.getBoundingClientRect().width || 0),
+      quantityContentContained: (() => {
+        const content = document.querySelector(
+          '.event-booking-accordion .event-booking__quantity .dropin-incrementer__content',
+        );
+        return Boolean(content && content.scrollWidth <= content.clientWidth);
+      })(),
+      quantityRightAligned: (() => {
+        const quantity = document.querySelector(
+          '.event-booking-accordion .event-booking__quantity',
+        );
+        const form = quantity?.closest('.event-booking__form');
+        return Boolean(quantity && form
+          && Math.abs(quantity.getBoundingClientRect().right
+            - form.getBoundingClientRect().right) <= 1);
+      })(),
+      attendeeCount: document.querySelectorAll(
+        '.event-booking-accordion .event-booking__participant',
+      ).length,
+      attendeeText: document.querySelector(
+        '.event-booking-accordion .event-booking__participant legend',
+      )?.innerText.trim() || '',
+      summaryVisible: Boolean(document.querySelector(
+        '.product-details--event .event-summary',
+      )),
+      summaryAfterDescription: (() => {
+        const description = document.querySelector('.product-details__description');
+        const summary = document.querySelector('.product-details--event .event-summary');
+        return Boolean(description && summary && description.compareDocumentPosition(summary)
+          & Node.DOCUMENT_POSITION_FOLLOWING);
+      })(),
+      actionsAfterSummary: (() => {
+        const summary = document.querySelector('.product-details--event .event-summary');
+        const actions = document.querySelector('.product-details__event-actions');
+        return Boolean(summary && actions && summary.compareDocumentPosition(actions)
+          & Node.DOCUMENT_POSITION_FOLLOWING);
+      })(),
+      consentOutsideAccordion: !document.querySelector(
+        '.event-booking-accordion .event-booking__consent',
+      ),
+      consentBelowSummary: Boolean(document.querySelector(
+        '.product-details__event-actions .event-booking__consent',
+      )),
+      submitBelowSummary: Boolean(document.querySelector(
+        '.product-details__event-actions .event-booking__submit',
+      )),
+      submitDisabledAtZero: document.querySelector(
+        '.product-details__event-actions .event-booking__submit',
+      )?.disabled === true,
+      contactEmailFullWidth: (() => {
+        const email = document.querySelector(
+          '.event-booking-accordion .event-booking__contact .event-booking__field:last-child',
+        );
+        return email ? getComputedStyle(email).gridColumn === '1 / -1' : false;
+      })(),
+      submitHasCartIcon: Boolean(document.querySelector(
+        '.product-details__event-actions .event-booking__submit-icon',
+      )),
+      wishlistBesideSubmit: (() => {
+        const buttons = document.querySelector(
+          '.product-details__event-actions .event-booking__buttons',
+        );
+        const wishlist = buttons?.querySelector(
+          '.product-details__buttons__add-to-wishlist',
+        );
+        return Boolean(buttons && wishlist && buttons.querySelector('.event-booking__submit'));
+      })(),
+      controlsAssociated: (() => {
+        const form = document.querySelector('.event-booking-accordion .event-booking__form');
+        const consent = document.querySelector('.event-booking__consent input');
+        const submit = document.querySelector('.event-booking__submit');
+        return Boolean(form && consent?.form === form && submit?.form === form);
+      })(),
+      externalControlsReset: (() => {
+        const form = document.querySelector('.event-booking-accordion .event-booking__form');
+        const consent = document.querySelector('.event-booking__consent input');
+        if (!form || !consent) return false;
+        consent.checked = true;
+        form.reset();
+        return consent.checked === false;
+      })(),
+      validationMessageRemoved: (() => {
+        const form = document.querySelector('.event-booking-accordion .event-booking__form');
+        const consentError = document.querySelector(
+          '.product-details__event-actions .event-booking__consent .event-booking__field-error',
+        );
+        const fieldError = document.querySelector(
+          '.event-booking-accordion .event-booking__field-error',
+        );
+        if (!form || !consentError || !fieldError) return null;
+        form.requestSubmit();
+        const consentStyle = getComputedStyle(consentError);
+        const fieldStyle = getComputedStyle(fieldError);
+        return {
+          feedback: document.querySelector('.event-booking__feedback')?.innerText || '',
+          warningFont: consentStyle.font,
+          fieldWarningFont: fieldStyle.font,
+          warningLetterSpacing: consentStyle.letterSpacing,
+          fieldWarningLetterSpacing: fieldStyle.letterSpacing,
+        };
+      })(),
+      summaryText: document.querySelector(
+        '.product-details--event .event-summary',
+      )?.innerText.trim() || '',
     };
   })()`),
 };
+report.commerce.eventPdp.desktop.quantityInteraction = await evaluate(`(() => {
+  const input = document.querySelector(
+    '.event-booking-accordion input[name="quantity"]',
+  );
+  if (!input) return { available: false };
+  const setter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    'value',
+  ).set;
+  setter.call(input, '2');
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  document.querySelector('.event-booking-accordion').open = true;
+  return { available: true, updated: input.value };
+})()`);
+await waitFor(`document.querySelector('.event-summary__ticket-count')
+  ?.innerText.includes('2')`);
+report.commerce.eventPdp.desktop.quantityInteraction.summary = await evaluate(`({
+  participantCount: document.querySelectorAll(
+    '.event-booking-accordion .event-booking__participant',
+  ).length,
+  attendeeText: document.querySelector(
+    '.event-booking-accordion .event-booking__participant legend',
+  )?.innerText.trim(),
+  summaryCount: document.querySelector('.event-summary__ticket-count')?.innerText,
+  summaryTotal: document.querySelector('.event-summary__total-value')?.innerText,
+  submitDisabled: document.querySelector(
+    '.product-details__event-actions .event-booking__submit',
+  )?.disabled,
+})`);
+report.commerce.eventPdp.desktop.quantityInteraction.contactFieldAlignment = await evaluate(`(() => {
+  const form = document.querySelector('.event-booking-accordion .event-booking__form');
+  const firstName = form?.querySelector('[name="contact-firstName"]');
+  const lastName = form?.querySelector('[name="contact-lastName"]');
+  const email = form?.querySelector('[name="contact-email"]');
+  const consent = document.querySelector(
+    '.product-details__event-actions .event-booking__consent input[name="consent"]',
+  );
+  if (!form || !firstName || !lastName || !email || !consent) return null;
+
+  firstName.value = 'Duong';
+  lastName.value = '';
+  email.value = 'duong@example.test';
+  consent.checked = true;
+  form.requestSubmit();
+
+  const firstNameTop = firstName.getBoundingClientRect().top;
+  const lastNameTop = lastName.getBoundingClientRect().top;
+  return {
+    firstNameTop,
+    inputTopDelta: Math.abs(firstNameTop - lastNameTop),
+    lastNameTop,
+  };
+})()`);
 await captureScreenshot('event-pdp-gallery-desktop');
 
 await send('Emulation.setDeviceMetricsOverride', {
@@ -294,6 +467,7 @@ await waitFor(`(() => {
   );
   return image?.complete && image.naturalWidth > 0;
 })()`);
+await waitFor('Boolean(document.querySelector(\'.event-booking-accordion .event-booking__form\'))');
 report.commerce.eventPdp.mobile = await evaluate(`(() => {
   const gallery = document.querySelector(
     '.product-details--event .product-details__right-column .product-details__gallery',
@@ -323,8 +497,28 @@ report.commerce.eventPdp.mobile = await evaluate(`(() => {
       hasHeightInImageUrls: imageUrls.some((url) => /(?:[?&])height=/.test(url)),
     documentWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
-    viewportWidth: window.innerWidth,
-  };
+      viewportWidth: window.innerWidth,
+      bookingAccordionClosed: document.querySelector(
+        '.event-booking-accordion',
+      )?.open === false,
+      bookingAfterEventDetails: (() => {
+        const details = document.querySelector('.product-details__event-details-mobile');
+        const booking = document.querySelector('.event-booking-accordion');
+        return Boolean(details && booking && details.contains(booking));
+      })(),
+      summaryAfterDescription: (() => {
+        const description = document.querySelector('.product-details__description');
+        const summary = document.querySelector('.product-details--event .event-summary');
+        return Boolean(description && summary && description.compareDocumentPosition(summary)
+          & Node.DOCUMENT_POSITION_FOLLOWING);
+      })(),
+      actionsAfterSummary: (() => {
+        const summary = document.querySelector('.product-details--event .event-summary');
+        const actions = document.querySelector('.product-details__event-actions');
+        return Boolean(summary && actions && summary.compareDocumentPosition(actions)
+          & Node.DOCUMENT_POSITION_FOLLOWING);
+      })(),
+    };
 })()`);
 await captureScreenshot('event-pdp-gallery-mobile');
 
@@ -342,6 +536,54 @@ assert.equal(
   report.commerce.eventPdp.desktop.documentWidth,
   report.commerce.eventPdp.desktop.clientWidth,
 );
+assert.equal(report.commerce.eventPdp.desktop.bookingAccordionClosed, true);
+assert.equal(report.commerce.eventPdp.desktop.quantityInsideAccordion, true);
+assert.equal(report.commerce.eventPdp.desktop.quantityDefault, '0');
+assert.equal(report.commerce.eventPdp.desktop.attendeeCount, 0);
+assert.equal(report.commerce.eventPdp.desktop.attendeeText, '');
+assert.ok(report.commerce.eventPdp.desktop.quantityWidth <= 160);
+assert.ok(report.commerce.eventPdp.desktop.quantityContentWidth <= 160);
+assert.equal(report.commerce.eventPdp.desktop.quantityContentContained, true);
+assert.equal(report.commerce.eventPdp.desktop.quantityRightAligned, true);
+assert.equal(report.commerce.eventPdp.desktop.summaryVisible, true);
+assert.equal(report.commerce.eventPdp.desktop.summaryAfterDescription, true);
+assert.equal(report.commerce.eventPdp.desktop.actionsAfterSummary, true);
+assert.equal(report.commerce.eventPdp.desktop.consentOutsideAccordion, true);
+assert.equal(report.commerce.eventPdp.desktop.consentBelowSummary, true);
+assert.equal(report.commerce.eventPdp.desktop.submitBelowSummary, true);
+assert.equal(report.commerce.eventPdp.desktop.submitDisabledAtZero, true);
+assert.equal(report.commerce.eventPdp.desktop.contactEmailFullWidth, true);
+assert.equal(report.commerce.eventPdp.desktop.submitHasCartIcon, true);
+assert.equal(report.commerce.eventPdp.desktop.wishlistBesideSubmit, true);
+assert.equal(report.commerce.eventPdp.desktop.controlsAssociated, true);
+assert.equal(report.commerce.eventPdp.desktop.externalControlsReset, true);
+assert.deepEqual(report.commerce.eventPdp.desktop.validationMessageRemoved, {
+  feedback: '',
+  warningFont: report.commerce.eventPdp.desktop.validationMessageRemoved.fieldWarningFont,
+  fieldWarningFont: report.commerce.eventPdp.desktop.validationMessageRemoved.fieldWarningFont,
+  warningLetterSpacing: report.commerce.eventPdp.desktop.validationMessageRemoved.fieldWarningLetterSpacing,
+  fieldWarningLetterSpacing: report.commerce.eventPdp.desktop.validationMessageRemoved.fieldWarningLetterSpacing,
+});
+assert.match(report.commerce.eventPdp.desktop.summaryText, /Summary/i);
+assert.match(report.commerce.eventPdp.desktop.summaryText, /Tickets/i);
+assert.equal(report.commerce.eventPdp.desktop.quantityInteraction.available, true);
+assert.equal(report.commerce.eventPdp.desktop.quantityInteraction.updated, '2');
+assert.equal(
+  report.commerce.eventPdp.desktop.quantityInteraction.summary.participantCount,
+  2,
+);
+assert.equal(
+  report.commerce.eventPdp.desktop.quantityInteraction.summary.attendeeText,
+  'Attendee 1',
+);
+assert.match(
+  report.commerce.eventPdp.desktop.quantityInteraction.summary.summaryCount,
+  /2/,
+);
+assert.equal(report.commerce.eventPdp.desktop.quantityInteraction.summary.submitDisabled, false);
+assert.ok(
+  report.commerce.eventPdp.desktop.quantityInteraction.contactFieldAlignment.inputTopDelta <= 1,
+);
 assert.ok(report.commerce.eventPdp.mobile.leftEdgeDelta <= 2);
 assert.ok(report.commerce.eventPdp.mobile.rightEdgeDelta <= 2);
 assert.ok(report.commerce.eventPdp.mobile.heightDelta <= 2);
@@ -350,6 +592,10 @@ assert.equal(
   report.commerce.eventPdp.mobile.documentWidth,
   report.commerce.eventPdp.mobile.clientWidth,
 );
+assert.equal(report.commerce.eventPdp.mobile.bookingAccordionClosed, true);
+assert.equal(report.commerce.eventPdp.mobile.bookingAfterEventDetails, true);
+assert.equal(report.commerce.eventPdp.mobile.summaryAfterDescription, true);
+assert.equal(report.commerce.eventPdp.mobile.actionsAfterSummary, true);
 
 await send('Emulation.setDeviceMetricsOverride', {
   deviceScaleFactor: 1,

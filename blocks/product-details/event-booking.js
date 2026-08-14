@@ -10,6 +10,7 @@ import {
 import createModal from '../modal/modal.js';
 
 const MAXIMUM_DEMO_QUANTITY = 20;
+let nextEventBookingFormId = 0;
 
 function getLabel(labels, key, fallback) {
   return labels.Global?.[key] || fallback;
@@ -20,6 +21,35 @@ function createTextElement(tagName, className, text) {
   element.className = className;
   element.textContent = text;
   return element;
+}
+
+function createCartIcon() {
+  const svgNamespace = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNamespace, 'svg');
+  svg.classList.add(
+    'dropin-icon',
+    'dropin-icon--shape-stroke-2',
+    'event-booking__submit-icon',
+  );
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+
+  const paths = [
+    'M18.3601 18.16H6.5601L4.8801 3H2.3501M19.6701 19.59C19.6701 20.3687 19.0388 21 18.2601 21C17.4814 21 16.8501 20.3687 16.8501 19.59C16.8501 18.8113 17.4814 18.18 18.2601 18.18C19.0388 18.18 19.6701 18.8113 19.6701 19.59ZM7.42986 19.59C7.42986 20.3687 6.79858 21 6.01986 21C5.24114 21 4.60986 20.3687 4.60986 19.59C4.60986 18.8113 5.24114 18.18 6.01986 18.18C6.79858 18.18 7.42986 18.8113 7.42986 19.59Z',
+    'M5.25 6.37L20.89 8.06L20.14 14.8H6.19',
+  ];
+  paths.forEach((pathData) => {
+    const path = document.createElementNS(svgNamespace, 'path');
+    path.setAttribute('d', pathData);
+    path.setAttribute('stroke', 'currentColor');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('vector-effect', 'non-scaling-stroke');
+    svg.append(path);
+  });
+
+  return svg;
 }
 
 function createField({
@@ -106,7 +136,7 @@ function createParticipantFields(index, labels) {
   const fieldset = document.createElement('fieldset');
   fieldset.className = 'event-booking__participant';
   const legend = document.createElement('legend');
-  legend.textContent = `${getLabel(labels, 'EventParticipantLabel', 'Participant')} ${index + 1}`;
+  legend.textContent = `${getLabel(labels, 'EventAttendeeLabel', 'Attendee')} ${index + 1}`;
 
   const firstName = createField({
     autocomplete: 'off',
@@ -154,17 +184,137 @@ export function renderEventMetadata(container, event, labels) {
   container.replaceChildren(createMetadata(event, labels));
 }
 
+function getProductPrice(product) {
+  const finalPrice = product?.prices?.final;
+  const value = finalPrice?.minimumAmount ?? finalPrice?.amount;
+  const amount = typeof value === 'number' ? value : value?.value;
+  const currency = typeof value === 'object' ? value.currency : finalPrice?.currency;
+
+  if (!Number.isFinite(amount) || !currency) return null;
+  return { amount, currency };
+}
+
+function formatPrice(price) {
+  if (!price) return '—';
+
+  try {
+    return new Intl.NumberFormat(
+      document.documentElement.lang || 'en-US',
+      { currency: price.currency, style: 'currency' },
+    ).format(price.amount);
+  } catch (error) {
+    return `${price.amount.toFixed(2)} ${price.currency}`;
+  }
+}
+
+/**
+ * Renders a live, pre-cart event ticket summary.
+ * @param {Element} container Summary mount element
+ * @param {object} options Summary options
+ * @returns {{setProduct: (product: object) => void, setQuantity: (quantity: number) => void}}
+ */
+export function renderEventSummary(container, {
+  labels = {},
+  product,
+  quantity = 0,
+}) {
+  let currentProduct = product;
+  let currentQuantity = quantity;
+
+  const summary = document.createElement('details');
+  summary.className = 'event-summary';
+  summary.open = true;
+
+  const header = document.createElement('summary');
+  header.className = 'event-summary__header';
+  const heading = createTextElement(
+    'span',
+    'event-summary__heading',
+    getLabel(labels, 'EventSummaryHeading', 'Summary'),
+  );
+  const ticketCount = document.createElement('span');
+  ticketCount.className = 'event-summary__ticket-count';
+  header.append(heading, ticketCount);
+
+  const content = document.createElement('div');
+  content.className = 'event-summary__content';
+  const ticketsHeading = createTextElement(
+    'h3',
+    'event-summary__tickets-heading',
+    getLabel(labels, 'EventSummaryTicketsHeading', 'Tickets'),
+  );
+  const line = document.createElement('div');
+  line.className = 'event-summary__line';
+  const lineName = document.createElement('span');
+  lineName.className = 'event-summary__line-name';
+  const linePrice = document.createElement('span');
+  linePrice.className = 'event-summary__line-price';
+  line.append(lineName, linePrice);
+
+  const total = document.createElement('div');
+  total.className = 'event-summary__total';
+  const totalLabel = createTextElement(
+    'span',
+    'event-summary__total-label',
+    getLabel(labels, 'EventSummaryTotalLabel', 'Total'),
+  );
+  const totalValue = document.createElement('strong');
+  totalValue.className = 'event-summary__total-value';
+  total.append(totalLabel, totalValue);
+  content.append(ticketsHeading, line, total);
+  summary.append(header, content);
+  container.replaceChildren(summary);
+
+  function renderValues() {
+    const name = currentProduct?.name || getLabel(labels, 'EventTicketLabel', 'Event ticket');
+    const price = getProductPrice(currentProduct);
+    const unitPrice = formatPrice(price);
+    const lineTotal = price
+      ? formatPrice({ ...price, amount: price.amount * currentQuantity })
+      : '—';
+    const countLabel = currentQuantity === 1
+      ? getLabel(labels, 'EventSummaryTicketSingular', 'ticket')
+      : getLabel(labels, 'EventSummaryTicketPlural', 'tickets');
+
+    ticketCount.textContent = `${currentQuantity} ${countLabel}`;
+    lineName.textContent = `${currentQuantity} × ${name}`;
+    linePrice.textContent = `(${unitPrice}) ${lineTotal}`;
+    totalValue.textContent = lineTotal;
+  }
+
+  renderValues();
+
+  return Object.freeze({
+    setProduct(nextProduct) {
+      currentProduct = nextProduct;
+      renderValues();
+    },
+    setQuantity(nextQuantity) {
+      if (Number.isInteger(nextQuantity) && nextQuantity >= 0) {
+        currentQuantity = nextQuantity;
+        renderValues();
+      }
+    },
+  });
+}
+
 export function renderEventBooking({
   addToCart,
   cartUrl,
   container,
   event,
+  includeMetadata = true,
   labels,
   inline = true,
+  initialQuantity = 1,
   onClose,
+  onQuantityChange,
+  onQuantityReset,
   onSuccess,
+  actionsContainer,
+  quantityElement,
 }) {
-  let quantity = 1;
+  let quantity = initialQuantity;
   let participants = [];
   let pendingSubmission = null;
 
@@ -172,6 +322,11 @@ export function renderEventBooking({
   const form = document.createElement('form');
   form.className = 'event-booking__form';
   form.noValidate = true;
+
+  if (actionsContainer) {
+    nextEventBookingFormId += 1;
+    form.id = `event-booking-form-${nextEventBookingFormId}`;
+  }
 
   const formHeading = createTextElement(
     'h2',
@@ -251,7 +406,35 @@ export function renderEventBooking({
   const submit = document.createElement('button');
   submit.className = 'button event-booking__submit';
   submit.type = 'submit';
-  submit.textContent = getLabel(labels, 'EventAddToCartLabel', 'Add to Cart');
+  const submitLabel = createTextElement(
+    'span',
+    'event-booking__submit-label',
+    getLabel(labels, 'EventAddToCartLabel', 'Add to Cart'),
+  );
+  submit.append(createCartIcon(), submitLabel);
+
+  const setSubmitLabel = (label) => {
+    submitLabel.textContent = label;
+  };
+
+  const updateSubmitDisabled = () => {
+    submit.disabled = quantity <= 0;
+  };
+
+  updateSubmitDisabled();
+
+  const actionButtons = document.createElement('div');
+  actionButtons.className = 'event-booking__buttons';
+  actionButtons.append(submit);
+
+  const actions = document.createElement('div');
+  actions.className = 'event-booking__actions';
+  actions.append(consentWrapper, actionButtons);
+
+  if (actionsContainer) {
+    consent.setAttribute('form', form.id);
+    submit.setAttribute('form', form.id);
+  }
 
   function renderParticipants(nextQuantity) {
     const previousValues = participants.map((participant) => participant.read());
@@ -333,14 +516,18 @@ export function renderEventBooking({
     consentError.textContent = errors.consent || '';
     consent.setAttribute('aria-invalid', errors.consent ? 'true' : 'false');
 
-    const firstInvalid = form.querySelector('[aria-invalid="true"]');
+    const firstInvalid = form.querySelector('[aria-invalid="true"]')
+      || actionsContainer?.querySelector('[aria-invalid="true"]');
     firstInvalid?.focus();
   }
 
   function clearForm() {
     form.reset();
-    quantity = 1;
+    quantity = initialQuantity;
     renderParticipants(quantity);
+    updateSubmitDisabled();
+    onQuantityChange?.(quantity);
+    onQuantityReset?.();
     pendingSubmission = null;
   }
 
@@ -351,6 +538,10 @@ export function renderEventBooking({
     }
   });
 
+  consent.addEventListener('input', () => {
+    pendingSubmission = null;
+  });
+
   form.addEventListener('submit', async (submitEvent) => {
     submitEvent.preventDefault();
     clearErrors();
@@ -358,11 +549,6 @@ export function renderEventBooking({
     const rawForm = readForm();
     const validation = validateBookingForm(rawForm, MAXIMUM_DEMO_QUANTITY);
     if (!validation.valid) {
-      feedback.textContent = getLabel(
-        labels,
-        'EventBookingValidationError',
-        'Check the highlighted booking details.',
-      );
       showErrors(validation.errors);
       return;
     }
@@ -381,11 +567,11 @@ export function renderEventBooking({
     }
 
     submit.disabled = true;
-    submit.textContent = getLabel(
+    setSubmitLabel(getLabel(
       labels,
       'EventBookingSubmitting',
       'Adding to cart…',
-    );
+    ));
 
     let successMessage = null;
     try {
@@ -403,12 +589,12 @@ export function renderEventBooking({
     } catch (error) {
       showSubmissionError(error);
     } finally {
-      submit.disabled = false;
-      submit.textContent = getLabel(
+      updateSubmitDisabled();
+      setSubmitLabel(getLabel(
         labels,
         'EventAddToCartLabel',
         'Add to Cart',
-      );
+      ));
     }
 
     if (!successMessage) return;
@@ -428,17 +614,28 @@ export function renderEventBooking({
   });
 
   renderParticipants(quantity);
-  form.append(
-    formHeading,
-    feedback,
+  const formChildren = [formHeading, feedback];
+  if (quantityElement) {
+    quantityElement.classList.add('event-booking__quantity');
+    formChildren.push(quantityElement);
+  }
+  formChildren.push(
     contact,
     participantsContainer,
-    consentWrapper,
-    submit,
   );
+  form.append(...formChildren);
+
+  if (actionsContainer) {
+    actionsContainer.replaceChildren(actions);
+  } else {
+    form.append(actions);
+  }
 
   if (inline) {
-    container.replaceChildren(metadata, form);
+    container.replaceChildren(
+      ...(includeMetadata ? [metadata] : []),
+      form,
+    );
   } else {
     container.replaceChildren(metadata);
   }
@@ -474,7 +671,7 @@ export function renderEventBooking({
     setQuantity(nextQuantity) {
       if (
         !Number.isInteger(nextQuantity)
-        || nextQuantity < 1
+        || nextQuantity < 0
         || nextQuantity > MAXIMUM_DEMO_QUANTITY
       ) {
         feedback.textContent = `Choose between 1 and ${MAXIMUM_DEMO_QUANTITY} tickets.`;
@@ -483,6 +680,8 @@ export function renderEventBooking({
       quantity = nextQuantity;
       pendingSubmission = null;
       renderParticipants(quantity);
+      updateSubmitDisabled();
+      onQuantityChange?.(quantity);
       feedback.textContent = '';
     },
   });

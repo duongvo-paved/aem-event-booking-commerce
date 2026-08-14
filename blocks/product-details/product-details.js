@@ -52,6 +52,7 @@ import {
 import {
   renderEventBooking,
   renderEventMetadata,
+  renderEventSummary,
   renderEventUnavailable,
 } from './event-booking.js';
 
@@ -124,6 +125,21 @@ function renderEventAttributes(ctx) {
   ctx.replaceWith($list);
 }
 
+function createEventBookingAccordion(labels) {
+  const details = document.createElement('details');
+  details.className = 'event-booking-accordion';
+
+  const summary = document.createElement('summary');
+  summary.className = 'event-booking-accordion__summary';
+  summary.textContent = labels.Global?.EventBookingHeading || 'Booking details';
+
+  const content = document.createElement('div');
+  content.className = 'event-booking-accordion__content';
+  details.append(summary, content);
+
+  return { content, details, summary };
+}
+
 export default async function decorate(block) {
   const eventProduct = events.lastPayload('pdp/data') ?? null;
   // bug: the pdp sends an object with event data even if product is not found.
@@ -186,15 +202,27 @@ export default async function decorate(block) {
   const $options = fragment.querySelector('.product-details__options');
   const $quantity = fragment.querySelector('.product-details__quantity');
   const $giftCardOptions = fragment.querySelector('.product-details__gift-card-options');
-  const $configuration = fragment.querySelector('.product-details__configuration');
   const $addToCart = fragment.querySelector('.product-details__buttons__add-to-cart');
   const $wishlistToggleBtn = fragment.querySelector('.product-details__buttons__add-to-wishlist');
   const $description = fragment.querySelector('.product-details__description');
   const $attributes = fragment.querySelector('.product-details__attributes');
 
+  const $eventSummary = document.createElement('div');
+  $eventSummary.className = 'product-details__event-summary';
+  $eventSummary.hidden = true;
+
+  const $eventActions = document.createElement('div');
+  $eventActions.className = 'product-details__event-actions';
+  $eventActions.hidden = true;
+
+  const $eventActionsContent = document.createElement('div');
+  $eventActionsContent.className = 'product-details__event-actions-content';
+  $eventActions.append($eventActionsContent);
+  $description.after($eventSummary, $eventActions);
+
   const $bookingStatus = document.createElement('div');
   $bookingStatus.className = 'product-details__booking-status';
-  $configuration.append($bookingStatus);
+  $eventActions.prepend($bookingStatus);
 
   block.replaceChildren(fragment);
 
@@ -219,7 +247,13 @@ export default async function decorate(block) {
 
   // Alert
   let inlineAlert = null;
+  let eventSummary = null;
+  let eventContent = null;
   const routeToWishlist = rootLink('/wishlist');
+  const productQuantityProps = {
+    onValue: (quantity) => eventBooking?.setQuantity(quantity),
+  };
+  if (eventMode) productQuantityProps.min = 0;
 
   const [
     _galleryMobile,
@@ -291,9 +325,7 @@ export default async function decorate(block) {
     })($options),
 
     // Configuration  Quantity
-    pdpRendered.render(ProductQuantity, {
-      onValue: (quantity) => eventBooking?.setQuantity(quantity),
-    })($quantity),
+    pdpRendered.render(ProductQuantity, productQuantityProps)($quantity),
 
     // Configuration  Gift Card Options
     pdpRendered.render(ProductGiftCardOptions, {})($giftCardOptions),
@@ -317,6 +349,7 @@ export default async function decorate(block) {
 
   let addToCart = null;
   let bookingSuccessAlert = null;
+  let bookingFocusTarget = null;
 
   async function renderBookingSuccess(message) {
     bookingSuccessAlert?.remove();
@@ -329,7 +362,7 @@ export default async function decorate(block) {
       onDismiss: () => {
         bookingSuccessAlert?.remove();
         bookingSuccessAlert = null;
-        $addToCart.querySelector('button')?.focus();
+        bookingFocusTarget?.focus();
       },
     })($bookingStatus);
     $bookingStatus.querySelector('[role="status"]')?.focus();
@@ -345,19 +378,57 @@ export default async function decorate(block) {
     ) {
       renderEventUnavailable($eventDetails, labels);
       renderEventUnavailable($eventDetailsMobile, labels);
+      $quantity.replaceChildren();
+      $eventActions.replaceChildren();
     } else {
       try {
         const event = await eventClient.getEvent(externalEventId);
+        pdpApi.setProductConfigurationValues((previous) => ({
+          ...(previous || {}),
+          quantity: 0,
+          sku: product.sku,
+        }));
+        eventSummary = renderEventSummary($eventSummary, {
+          labels,
+          product,
+        });
+        $eventSummary.hidden = false;
+
+        const accordion = createEventBookingAccordion(labels);
+        eventContent = document.createElement('div');
+        eventContent.className = 'product-details__event-content';
+        renderEventMetadata(eventContent, event, labels);
+        eventContent.append(accordion.details);
+
+        const eventBreakpoint = window.matchMedia('(min-width: 900px)');
+        const placeEventContent = () => {
+          const target = eventBreakpoint.matches ? $eventDetails : $eventDetailsMobile;
+          target.replaceChildren(eventContent);
+        };
+        eventBreakpoint.addEventListener('change', placeEventContent);
+        placeEventContent();
+
+        $eventActions.hidden = false;
         eventBooking = renderEventBooking({
           cartUrl: rootLink('/cart'),
-          container: $eventDetails,
+          container: accordion.content,
           event,
+          includeMetadata: false,
+          initialQuantity: 0,
           labels,
-          inline: false,
           onClose: () => {
-            $addToCart.querySelector('button')?.focus();
+            accordion.summary.focus();
+          },
+          onQuantityChange: (quantity) => eventSummary?.setQuantity(quantity),
+          onQuantityReset: () => {
+            pdpApi.setProductConfigurationValues((previous) => {
+              if (previous) return { ...previous, quantity: 0 };
+              return { quantity: 0, sku: product.sku };
+            });
           },
           onSuccess: (message) => {
+            accordion.open = false;
+            bookingFocusTarget = accordion.summary;
             renderBookingSuccess(message).catch((error) => {
               console.error('Failed to render booking success alert:', error);
             });
@@ -382,17 +453,16 @@ export default async function decorate(block) {
               values,
             });
           },
+          actionsContainer: $eventActionsContent,
+          quantityElement: $quantity,
         });
-        renderEventMetadata($eventDetailsMobile, event, labels);
-        addToCart = await UI.render(Button, {
-          children: labels.Global?.EventAddToCartLabel || 'Add to Cart',
-          icon: h(Icon, { source: 'Cart' }),
-          onClick: () => eventBooking?.open(),
-        })($addToCart);
-        const initialQuantity = pdpApi.getProductConfigurationValues()?.quantity;
-        if (Number.isInteger(initialQuantity)) {
-          eventBooking.setQuantity(initialQuantity);
+        const $eventButtons = $eventActionsContent.querySelector(
+          '.event-booking__buttons',
+        );
+        if ($eventButtons && $wishlistToggleBtn) {
+          $eventButtons.append($wishlistToggleBtn);
         }
+        eventBooking.setQuantity(0);
       } catch (error) {
         renderEventUnavailable(
           $eventDetails,
@@ -408,6 +478,8 @@ export default async function decorate(block) {
             ? labels.Global?.EventDetailsUnavailable || 'Event details unavailable.'
             : undefined,
         );
+        $quantity.replaceChildren();
+        $eventActions.replaceChildren();
       }
     }
   } else {
@@ -522,6 +594,12 @@ export default async function decorate(block) {
           optionUIDs,
         },
       }));
+    }
+  }, { eager: true });
+
+  events.on('pdp/data', (payload) => {
+    if (eventMode && payload?.sku) {
+      eventSummary?.setProduct(payload);
     }
   }, { eager: true });
 
