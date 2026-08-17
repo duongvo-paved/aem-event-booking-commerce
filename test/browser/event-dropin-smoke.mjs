@@ -277,15 +277,18 @@ report.commerce.eventPdp = {
       documentWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
       viewportWidth: window.innerWidth,
-      bookingAccordionClosed: document.querySelector(
+      bookingAccordionExpanded: document.querySelector(
         '.event-booking-accordion',
-      )?.open === false,
+      )?.open === true,
       quantityInsideAccordion: Boolean(document.querySelector(
         '.event-booking-accordion .event-booking__quantity',
       )),
       quantityDefault: document.querySelector(
         '.event-booking-accordion input[name="quantity"]',
       )?.value,
+      quantityLabel: document.querySelector(
+        '.event-booking-accordion .event-booking__quantity-label',
+      )?.innerText.trim() || '',
       quantityWidth: Math.round(document.querySelector(
         '.event-booking-accordion .event-booking__quantity',
       )?.getBoundingClientRect().width || 0),
@@ -498,9 +501,9 @@ report.commerce.eventPdp.mobile = await evaluate(`(() => {
     documentWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
       viewportWidth: window.innerWidth,
-      bookingAccordionClosed: document.querySelector(
+      bookingAccordionExpanded: document.querySelector(
         '.event-booking-accordion',
-      )?.open === false,
+      )?.open === true,
       bookingAfterEventDetails: (() => {
         const details = document.querySelector('.product-details__event-details-mobile');
         const booking = document.querySelector('.event-booking-accordion');
@@ -536,9 +539,10 @@ assert.equal(
   report.commerce.eventPdp.desktop.documentWidth,
   report.commerce.eventPdp.desktop.clientWidth,
 );
-assert.equal(report.commerce.eventPdp.desktop.bookingAccordionClosed, true);
+assert.equal(report.commerce.eventPdp.desktop.bookingAccordionExpanded, true);
 assert.equal(report.commerce.eventPdp.desktop.quantityInsideAccordion, true);
 assert.equal(report.commerce.eventPdp.desktop.quantityDefault, '0');
+assert.equal(report.commerce.eventPdp.desktop.quantityLabel, 'Number of attendees');
 assert.equal(report.commerce.eventPdp.desktop.attendeeCount, 0);
 assert.equal(report.commerce.eventPdp.desktop.attendeeText, '');
 assert.ok(report.commerce.eventPdp.desktop.quantityWidth <= 160);
@@ -592,7 +596,7 @@ assert.equal(
   report.commerce.eventPdp.mobile.documentWidth,
   report.commerce.eventPdp.mobile.clientWidth,
 );
-assert.equal(report.commerce.eventPdp.mobile.bookingAccordionClosed, true);
+assert.equal(report.commerce.eventPdp.mobile.bookingAccordionExpanded, true);
 assert.equal(report.commerce.eventPdp.mobile.bookingAfterEventDetails, true);
 assert.equal(report.commerce.eventPdp.mobile.summaryAfterDescription, true);
 assert.equal(report.commerce.eventPdp.mobile.actionsAfterSummary, true);

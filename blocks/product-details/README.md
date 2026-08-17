@@ -81,10 +81,10 @@ No events are emitted by this block. -->
 8. Event products do not use PDP cart-update mode; cart participant editing remains
    gated on the separate replacement-intent contract.
 9. Event details remain visible and the booking form is rendered in a native accordion
-   below them. The accordion is closed by default and moves between desktop/mobile
+   below them. The accordion is expanded by default and moves between desktop/mobile
    event-detail mounts without duplicating form state.
 10. The event-only quantity selector is rendered inside the booking form, starts at
-    zero, uses a compact right-aligned width, and keeps the incrementer border around
+    zero, is labeled “Number of attendees,” uses a compact right-aligned width, and keeps the incrementer border around
     all controls. Its value controls attendee count and the live ticket summary; Add
     to Cart remains disabled until at least one ticket is selected.
 11. The event summary is a collapsible, expanded-by-default pre-cart preview showing

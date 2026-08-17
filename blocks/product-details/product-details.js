@@ -128,6 +128,7 @@ function renderEventAttributes(ctx) {
 function createEventBookingAccordion(labels) {
   const details = document.createElement('details');
   details.className = 'event-booking-accordion';
+  details.open = true;
 
   const summary = document.createElement('summary');
   summary.className = 'event-booking-accordion__summary';
@@ -253,7 +254,12 @@ export default async function decorate(block) {
   const productQuantityProps = {
     onValue: (quantity) => eventBooking?.setQuantity(quantity),
   };
-  if (eventMode) productQuantityProps.min = 0;
+  if (eventMode) {
+    productQuantityProps['aria-label'] = labels.Global?.EventQuantityLabel
+      || 'Number of attendees';
+    productQuantityProps.id = 'event-booking-quantity';
+    productQuantityProps.min = 0;
+  }
 
   const [
     _galleryMobile,

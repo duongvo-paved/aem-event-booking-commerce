@@ -617,7 +617,18 @@ export function renderEventBooking({
   const formChildren = [formHeading, feedback];
   if (quantityElement) {
     quantityElement.classList.add('event-booking__quantity');
-    formChildren.push(quantityElement);
+    const quantityWrapper = document.createElement('div');
+    quantityWrapper.className = 'event-booking__quantity-wrapper';
+    const quantityLabel = document.createElement('label');
+    quantityLabel.className = 'event-booking__quantity-label';
+    quantityLabel.htmlFor = 'event-booking-quantity';
+    quantityLabel.textContent = getLabel(
+      labels,
+      'EventQuantityLabel',
+      'Number of attendees',
+    );
+    quantityWrapper.append(quantityLabel, quantityElement);
+    formChildren.push(quantityWrapper);
   }
   formChildren.push(
     contact,
