@@ -91,8 +91,8 @@ export default async function decorate(block) {
         visibilityFilter,
         ...userFilters,
       ],
-    }).catch(() => {
-      console.error('Error searching for products');
+    }).catch((error) => {
+      console.error('Error searching for products', error);
     });
   } else {
     // Search page: dropin uses only the request (no URL parsing).
@@ -103,8 +103,8 @@ export default async function decorate(block) {
       sort: searchState.sort,
       // Always add visibility filter to the request
       filter: [visibilityFilter, ...userFilters],
-    }).catch((e) => {
-      console.error('Error searching for products', e);
+    }).catch((error) => {
+      console.error('Error searching for products', error);
     });
   }
 
@@ -179,7 +179,8 @@ export default async function decorate(block) {
       const eventMap = await eventClient.enrich(uniqueIds);
       if (requestId !== enrichmentRequest) return;
       updateEventCards(eventMap, new Set(uniqueIds));
-    } catch {
+    } catch (error) {
+      console.error('Error enriching event products', error);
       if (requestId !== enrichmentRequest) return;
       updateEventCards(new Map(), new Set(uniqueIds));
       $eventStatus.textContent = labels.Global?.EventEnrichmentUnavailable

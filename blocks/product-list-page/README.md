@@ -73,5 +73,5 @@ A visibility filter `{ attribute: 'visibility', in: ['Search', 'Catalog, Search'
 
 ### Error Handling
 
-- **Search API errors**: Initial `search()` calls are wrapped in `.catch()`; errors are logged with `console.error('Error searching for products', e)`. The block does not show an inline error UI; the dropin may show its own state.
+- **Search API errors**: Initial `search()` calls are wrapped in `.catch()`; errors are logged with `console.error('Error searching for products', error)`. Event enrichment exceptions are also logged with `console.error('Error enriching event products', error)` before the unavailable metadata state is rendered. The block does not show an inline search error UI; the dropin may show its own state.
 - **Missing payload**: Result count and filter-count updates guard with `payload.result?.totalCount`, `payload.request?.phrase`, and `payload.request.filter.length` where appropriate.
