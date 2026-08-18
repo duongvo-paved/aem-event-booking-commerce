@@ -506,7 +506,7 @@ main > .section:first-of-type {
 main .section.light,
 main .section.highlight {
   margin: 0;
-  padding: var(--spacing-xxsmall) 0;
+  padding: 0 0 var(--spacing-large);
 }
 
 main .section.highlight h4 {
