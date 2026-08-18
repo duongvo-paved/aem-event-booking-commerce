@@ -220,6 +220,22 @@ test('builds cart, mini-cart, and confirmation panel models', () => {
   assert.match(confirmation.message, /emailed to the address used for this order/);
 });
 
+test('omits organizer rows when event enrichment has no organizer', () => {
+  const summary = {
+    cartItemUid: 'one',
+    correlationStatus: 'linked',
+    event: { ...event, organizer: null },
+    quantity: 2,
+  };
+
+  const panel = getCartBookingPanelModel(summary, {
+    labels,
+    surface: 'cart',
+  });
+
+  assert.equal(panel.rows.some(([label]) => label === 'Organizer'), false);
+});
+
 test('creates immediate checkout fallbacks without sensitive correlation data', () => {
   const summaries = createCheckoutBookingFallbackSummaries(cartData([
     { ...cartItem('one', 2), topLevelSku: 'event-ticket-sku' },

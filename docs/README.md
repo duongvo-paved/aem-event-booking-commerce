@@ -18,8 +18,8 @@ these attributes:
 
 When enabled in `config.json`, the storefront provides:
 
-- Event metadata on the product-detail page, including date, venue, organizer,
-  tags, and age requirement.
+- Event metadata on the product-detail page, including date, venue, organizer
+  when supplied, tags, and age requirement.
 - An accessible booking form with contact details, consent, and one participant
   for each ticket quantity.
 - Idempotent booking-intent creation followed by addition of the Commerce product

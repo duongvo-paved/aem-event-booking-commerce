@@ -15,6 +15,7 @@ import {
   toClassName,
 } from './aem.js';
 import initializeDropins from './initializers/index.js';
+import { decodeProductSku, encodeProductSku } from './product-url.js';
 
 /**
  * Sanitizes the given string by:
@@ -628,8 +629,8 @@ export async function commerceEndpointWithQueryParams() {
  */
 function getSkuFromUrl() {
   const path = window.location.pathname;
-  const result = path.match(/\/products\/[\w|-]+\/([\w|-]+)$/);
-  return result?.[1];
+  const result = path.match(/\/products\/[^/]+\/([^/]+)\/?$/);
+  return result?.[1] ? decodeProductSku(result[1]) : result?.[1];
 }
 
 /**
@@ -673,8 +674,8 @@ export function getProductLink(urlKey, sku) {
     console.warn('getProductLink: sku is missing or empty', { urlKey, sku });
   }
   const sanitizedUrlKey = urlKey ? sanitizeName(urlKey) : '';
-  const sanitizedSku = sku ? sanitizeName(sku) : '';
-  return rootLink(`/products/${sanitizedUrlKey}/${sanitizedSku}`);
+  const encodedSku = sku ? encodeProductSku(sku) : '';
+  return rootLink(`/products/${sanitizedUrlKey}/${encodedSku}`);
 }
 
 /**

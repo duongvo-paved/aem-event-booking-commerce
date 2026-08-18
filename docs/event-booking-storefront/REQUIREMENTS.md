@@ -388,7 +388,7 @@ This preserves useful implementation discoveries—such as current action paths 
 ```json
 {
   "event_id": "string",
-  "organizer": "string",
+  "organizer": "string (optional)",
   "tags": ["string"],
   "age_requirement": "string",
   "starts_at_utc": "ISO-8601 string",

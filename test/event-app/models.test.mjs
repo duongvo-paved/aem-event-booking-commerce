@@ -81,6 +81,14 @@ test('normalizes a strict public event and keyed enrichment map', () => {
   assert.deepEqual([...events.keys()], ['event-1']);
 });
 
+test('allows the public event organizer to be omitted', () => {
+  const { organizer, ...eventWithoutOrganizer } = publicEvent;
+  const event = normalizePublicEvent(eventWithoutOrganizer, 'event-1');
+
+  assert.equal(organizer, 'Demo Events');
+  assert.equal(event.organizer, null);
+});
+
 test('rejects unexpected event and intent response fields', () => {
   assert.throws(() => normalizePublicEvent({
     ...publicEvent,

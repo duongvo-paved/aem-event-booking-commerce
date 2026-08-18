@@ -171,7 +171,7 @@ export function normalizePublicEvent(value, expectedEventId) {
     ageRequirement: optionalString(value.age_requirement, 'event.age_requirement'),
     endsAtUtc: requireIsoDate(value.ends_at_utc, 'event.ends_at_utc'),
     eventId,
-    organizer: requireString(value.organizer, 'event.organizer'),
+    organizer: optionalString(value.organizer, 'event.organizer'),
     startsAtUtc: requireIsoDate(value.starts_at_utc, 'event.starts_at_utc'),
     tags: Object.freeze(value.tags.map((tag) => tag.trim())),
     timezone: requireTimeZone(value.timezone),

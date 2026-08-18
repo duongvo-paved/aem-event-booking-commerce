@@ -240,7 +240,7 @@ export function getCartBookingPanelModel(
     if (summary.event) {
       rows.push([labels.date, formatEventDateRange(summary.event, locale)]);
       rows.push([labels.venue, summary.event.venue.name]);
-      if (surface !== 'mini-cart') {
+      if (surface !== 'mini-cart' && summary.event.organizer) {
         rows.push([labels.organizer, summary.event.organizer]);
       }
     }

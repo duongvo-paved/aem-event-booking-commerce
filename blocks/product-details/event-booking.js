@@ -106,8 +106,13 @@ function createMetadata(event, labels) {
     [getLabel(labels, 'EventDateLabel', 'Date and time'), formatEventDateRange(event)],
     [getLabel(labels, 'EventVenueLabel', 'Venue'), event.venue.name],
     [getLabel(labels, 'EventAddressLabel', 'Address'), event.venue.address],
-    [getLabel(labels, 'EventOrganizerLabel', 'Organizer'), event.organizer],
   ];
+  if (event.organizer) {
+    rows.push([
+      getLabel(labels, 'EventOrganizerLabel', 'Organizer'),
+      event.organizer,
+    ]);
+  }
   if (event.ageRequirement) {
     rows.push([
       getLabel(labels, 'EventAgeRequirementLabel', 'Age requirement'),

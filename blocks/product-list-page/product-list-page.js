@@ -153,12 +153,14 @@ export default async function decorate(block) {
       venue.className = 'event-card-metadata__venue';
       venue.textContent = `${event.venue.name}, ${event.venue.address}`;
 
-      const organizer = document.createElement('span');
-      organizer.className = 'event-card-metadata__organizer';
-      organizer.textContent = event.organizer;
-
       metadata.classList.remove('event-card-metadata--unavailable');
-      metadata.append(schedule, venue, organizer);
+      metadata.append(schedule, venue);
+      if (event.organizer) {
+        const organizer = document.createElement('span');
+        organizer.className = 'event-card-metadata__organizer';
+        organizer.textContent = event.organizer;
+        metadata.append(organizer);
+      }
       metadata.removeAttribute('hidden');
     });
   }
