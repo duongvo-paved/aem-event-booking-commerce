@@ -33,6 +33,10 @@ Search state is read from and written to the URL by this project (see `search-ur
 | `sort`    | Sort spec: comma-separated `attribute_DIRECTION` (e.g. `price_ASC,name_DESC`). |
 | `filter`  | Filters: pipe-separated segments. Each segment is `attribute:value`; multiple values for the same attribute use multiple segments (e.g. `categories:val1\|categories:val2`). Supports `in` (single/multi-value) and numeric `range` (e.g. `price:0-100`). |
 
+The storefront-owned `inStock`, `visibility`, and `categoryPath` constraints are
+not accepted from or written to the URL. Shopper-visible filters cannot override
+these constraints.
+
 On load, the block normalizes the URL (e.g. filter format) with `replaceState`. After each search result, it updates the URL with `pushState` so the address bar reflects the current request.
 
 ### Events
@@ -61,7 +65,11 @@ disabled until the versioned API and browser CORS gates are approved.
 - **Category page** (`config.urlpath` set): Initial search uses an empty phrase, `categoryPath` filter, visibility filter, and any sort/filter from the URL. Products are scoped to the category.
 - **Search page** (no `urlpath`): Initial search uses `q` as the phrase, visibility filter, and sort/filter from the URL.
 
-A visibility filter `{ attribute: 'visibility', in: ['Search', 'Catalog, Search'] }` is always added to the request; it is not persisted in the URL but is included when syncing the URL after each result.
+A visibility filter `{ attribute: 'visibility', in: ['Search', 'Catalog, Search'] }`
+and stock filter `{ attribute: 'inStock', eq: 'true' }` are always added to the
+request. These filters are not persisted in the URL or included in the visible
+filter count. Product Discovery applies them server-side so result totals, facets,
+sorting, and pagination remain consistent with the products shown.
 
 ### User Interaction Flows
 

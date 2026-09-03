@@ -4,6 +4,8 @@
  * the storefront-product-discovery dropin does not touch the URL.
  */
 
+const HIDDEN_FILTER_ATTRIBUTES = new Set(['categoryPath', 'inStock', 'visibility']);
+
 /**
  * Parses the sort query param into the search API format.
  * @param {string} [sortParam] - Comma-separated sort spec, e.g. "price_ASC,name_DESC"
@@ -113,7 +115,8 @@ export function getSearchStateFromUrl(url) {
     phrase: q,
     currentPage: page ? Number(page) : 1,
     sort: parseSort(sort),
-    filter: parseFilter(filter),
+    filter: parseFilter(filter)
+      .filter((item) => !HIDDEN_FILTER_ATTRIBUTES.has(item.attribute)),
   };
 }
 
@@ -136,8 +139,9 @@ export function applySearchStateToUrl(url, request) {
     url.searchParams.set('sort', serializeSort(request.sort));
   }
   if (request?.filter != null) {
-    // Don't add visibility filter to the URL, since we always add it in product-list-page.js
-    const urlFilters = request.filter.filter((f) => f.attribute !== 'visibility');
+    // Storefront-owned filters are always applied by product-list-page.js.
+    const urlFilters = request.filter
+      .filter((item) => !HIDDEN_FILTER_ATTRIBUTES.has(item.attribute));
     url.searchParams.set('filter', serializeFilter(urlFilters));
   }
 }

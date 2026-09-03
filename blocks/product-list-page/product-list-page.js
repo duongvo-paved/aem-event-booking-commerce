@@ -29,6 +29,8 @@ import {
 import '../../scripts/initializers/search.js';
 import '../../scripts/initializers/wishlist.js';
 
+const HIDDEN_FILTER_ATTRIBUTES = new Set(['categoryPath', 'inStock', 'visibility']);
+
 export default async function decorate(block) {
   const labels = await fetchPlaceholders();
   const eventClient = createEventAppClient();
@@ -70,7 +72,9 @@ export default async function decorate(block) {
 
   // Default visibility filter for all of our requests
   const visibilityFilter = { attribute: 'visibility', in: ['Search', 'Catalog, Search'] };
-  const userFilters = searchState.filter.filter((f) => f.attribute !== 'visibility');
+  const inStockFilter = { attribute: 'inStock', eq: 'true' };
+  const userFilters = searchState.filter
+    .filter((filter) => !HIDDEN_FILTER_ATTRIBUTES.has(filter.attribute));
 
   // Normalize URL (e.g. pipe-separated filter values)
   const normalizedUrl = new URL(window.location.href);
@@ -89,6 +93,8 @@ export default async function decorate(block) {
         { attribute: 'categoryPath', eq: config.urlpath }, // Add category filter
         // Always add visibility filter to the request
         visibilityFilter,
+        // Only return products that are currently in stock
+        inStockFilter,
         ...userFilters,
       ],
     }).catch((error) => {
@@ -102,7 +108,7 @@ export default async function decorate(block) {
       pageSize,
       sort: searchState.sort,
       // Always add visibility filter to the request
-      filter: [visibilityFilter, ...userFilters],
+      filter: [visibilityFilter, inStockFilter, ...userFilters],
     }).catch((error) => {
       console.error('Error searching for products', error);
     });
@@ -291,8 +297,10 @@ export default async function decorate(block) {
       : `${totalCount} results found.`;
 
     // Update the view facets button with the number of filters
-    if (payload.request.filter.length > 0) {
-      $viewFacets.querySelector('button').setAttribute('data-count', payload.request.filter.length);
+    const visibleFilterCount = payload.request.filter
+      .filter((filter) => !HIDDEN_FILTER_ATTRIBUTES.has(filter.attribute)).length;
+    if (visibleFilterCount > 0) {
+      $viewFacets.querySelector('button').setAttribute('data-count', visibleFilterCount);
     } else {
       $viewFacets.querySelector('button').removeAttribute('data-count');
     }
