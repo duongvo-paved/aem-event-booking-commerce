@@ -380,10 +380,17 @@ export default async function decorate(block) {
           skeletonCount: pageSize,
           scope: 'popover',
           routeProduct: ({ urlKey, sku }) => getProductLink(urlKey, sku),
-          onSearchResult: (results) => {
-            searchResult.style.display = results.length > 0 ? 'block' : 'none';
+          onSearchResult: () => {
+            searchResult.style.display = 'block';
           },
           slots: {
+            NoResults: (ctx) => {
+              const noResults = document.createElement('p');
+              noResults.classList.add('search-bar-result-empty');
+              noResults.setAttribute('role', 'status');
+              noResults.textContent = 'No results found';
+              ctx.replaceWith(noResults);
+            },
             ProductImage: (ctx) => {
               const { product, defaultImageProps } = ctx;
               const anchorWrapper = document.createElement('a');

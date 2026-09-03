@@ -406,6 +406,10 @@ header .nav-search-panel .search-bar-result {
   position: relative;
 }
 
+header .nav-search-panel .search-bar-result .search-bar-result-empty {
+  margin-block: var(--spacing-small);
+}
+
 header .nav-search-panel .search-bar-result .product-discovery-product-list__grid {
   margin-block: var(--spacing-small);
 }
