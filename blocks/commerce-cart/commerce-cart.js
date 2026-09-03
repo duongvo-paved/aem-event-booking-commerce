@@ -33,7 +33,12 @@ import '../../scripts/initializers/cart.js';
 import '../../scripts/initializers/wishlist.js';
 
 import { readBlockConfig } from '../../scripts/aem.js';
-import { fetchPlaceholders, rootLink, getProductLink } from '../../scripts/commerce.js';
+import {
+  fetchPlaceholders,
+  rootLink,
+  getProductLink,
+  CS_FETCH_GRAPHQL,
+} from '../../scripts/commerce.js';
 import { createEventAppClient } from '../../scripts/event-app/client.js';
 import { getEventCartLines } from '../../scripts/event-app/cart.js';
 import {
@@ -100,6 +105,9 @@ export default async function decorate(block) {
   const $emptyCart = fragment.querySelector('.cart__empty-cart');
   const $giftOptions = fragment.querySelector('.cart__gift-options');
   const $rightColumn = fragment.querySelector('.cart__right-column');
+  const $crossSells = document.createElement('div');
+  $crossSells.className = 'cart__cross-sells';
+  $list.parentElement.appendChild($crossSells);
   let cancellationAlert = null;
 
   const removalController = createEventCartRemovalController({
@@ -342,12 +350,194 @@ export default async function decorate(block) {
     })($giftOptions),
   ]);
 
+  const CROSS_SELL_QUERY = `
+    query CrossSellProducts($skus: [String!]!) {
+      products(skus: $skus) {
+        __typename
+        sku
+        name
+        url
+        addToCartAllowed
+        images(roles: []) { url label }
+        links {
+          product { sku }
+          linkTypes
+        }
+        ... on SimpleProductView {
+          price {
+            final { amount { value currency } }
+          }
+        }
+      }
+    }
+  `;
+  const pageSize = 2;
+  let crossSellProducts = [];
+  let crossSellPage = 0;
+  let crossSellSignature = '';
+
+  function renderCrossSells() {
+    $crossSells.innerHTML = '';
+    if (!crossSellProducts.length) return;
+
+    const heading = document.createElement('h2');
+    heading.className = 'cart__cross-sells-heading';
+    heading.textContent = placeholders?.Global?.CartCrossSellHeading || 'You may also like';
+    $crossSells.appendChild(heading);
+
+    const grid = document.createElement('div');
+    grid.className = 'cart__cross-sells-grid';
+    const start = crossSellPage * pageSize;
+    crossSellProducts.slice(start, start + pageSize).forEach((product) => {
+      const card = document.createElement('article');
+      card.className = 'cart__cross-sell-card';
+
+      const image = product.images?.[0];
+      if (image?.url) {
+        const imageElement = document.createElement('img');
+        imageElement.src = image.url;
+        imageElement.alt = image.label || product.name;
+        imageElement.loading = 'lazy';
+        card.appendChild(imageElement);
+      }
+
+      const name = document.createElement('h3');
+      name.className = 'cart__cross-sell-name';
+      name.textContent = product.name;
+      card.appendChild(name);
+
+      const sku = document.createElement('p');
+      sku.className = 'cart__cross-sell-sku';
+      sku.textContent = product.sku;
+      card.appendChild(sku);
+
+      const price = document.createElement('p');
+      price.className = 'cart__cross-sell-price';
+      const amount = product.price?.final?.amount;
+      price.textContent = amount
+        ? new Intl.NumberFormat(undefined, {
+          style: 'currency',
+          currency: amount.currency,
+        }).format(amount.value)
+        : '';
+      card.appendChild(price);
+
+      const addButton = document.createElement('button');
+      addButton.type = 'button';
+      addButton.className = 'dropin-button dropin-button--primary dropin-button--medium cart__cross-sell-add';
+      const addIcon = document.createElement('span');
+      addIcon.className = 'cart__cross-sell-add-icon';
+      UI.render(Icon, { source: 'Cart', size: '24', 'aria-hidden': 'true' })(addIcon);
+      addButton.appendChild(addIcon);
+      const addLabel = document.createElement('span');
+      addLabel.textContent = placeholders?.Global?.AddProductToCart || 'Add to cart';
+      addButton.appendChild(addLabel);
+      addButton.addEventListener('click', async () => {
+        addButton.disabled = true;
+        addButton.setAttribute('aria-busy', 'true');
+        try {
+          await Cart.addProductsToCart([{ sku: product.sku, quantity: 1 }]);
+          await Cart.refreshCart();
+        } catch (error) {
+          console.error('Unable to add cross-sell product to cart', error);
+          addButton.disabled = false;
+          addButton.removeAttribute('aria-busy');
+          addButton.textContent = placeholders?.Global?.AddProductToCartError || 'Try again';
+        }
+      });
+      card.appendChild(addButton);
+      grid.appendChild(card);
+    });
+    $crossSells.appendChild(grid);
+
+    const totalPages = Math.ceil(crossSellProducts.length / pageSize);
+    if (totalPages > 1) {
+      const pagination = document.createElement('nav');
+      pagination.className = 'cart__cross-sells-pagination';
+      pagination.setAttribute('aria-label', 'Cross-sell products pagination');
+
+      const previous = document.createElement('button');
+      previous.type = 'button';
+      previous.className = 'cart__cross-sells-pagination-button';
+      previous.setAttribute('aria-label', 'Previous page');
+      const previousIcon = document.createElement('span');
+      previousIcon.className = 'cart__cross-sells-pagination-icon cart__cross-sells-pagination-icon--previous';
+      UI.render(Icon, { source: 'ChevronRight', size: '24', 'aria-hidden': 'true' })(previousIcon);
+      previous.appendChild(previousIcon);
+      previous.disabled = crossSellPage === 0;
+      previous.addEventListener('click', () => {
+        crossSellPage -= 1;
+        renderCrossSells();
+      });
+
+      const pageLabel = document.createElement('span');
+      pageLabel.textContent = `Page ${crossSellPage + 1} of ${totalPages}`;
+
+      const next = document.createElement('button');
+      next.type = 'button';
+      next.className = 'cart__cross-sells-pagination-button';
+      next.setAttribute('aria-label', 'Next page');
+      const nextIcon = document.createElement('span');
+      nextIcon.className = 'cart__cross-sells-pagination-icon';
+      UI.render(Icon, { source: 'ChevronRight', size: '24', 'aria-hidden': 'true' })(nextIcon);
+      next.appendChild(nextIcon);
+      next.disabled = crossSellPage >= totalPages - 1;
+      next.addEventListener('click', () => {
+        crossSellPage += 1;
+        renderCrossSells();
+      });
+
+      pagination.append(previous, pageLabel, next);
+      $crossSells.appendChild(pagination);
+    }
+  }
+
+  async function loadCrossSells(cartData) {
+    const cartItems = Array.isArray(cartData?.items) ? cartData.items : [];
+    const cartSkus = cartItems.map((item) => item.sku).filter(Boolean);
+    const signature = cartSkus.slice().sort().join('|');
+    if (signature === crossSellSignature) return;
+    crossSellSignature = signature;
+    crossSellProducts = [];
+    crossSellPage = 0;
+    $crossSells.innerHTML = '';
+    if (!cartSkus.length) return;
+
+    try {
+      const { data, errors } = await CS_FETCH_GRAPHQL.fetchGraphQl(CROSS_SELL_QUERY, {
+        variables: { skus: cartSkus },
+      });
+      if (errors?.length) throw new Error(errors[0].message || 'Cross-sell lookup failed');
+      const inCart = new Set(cartSkus);
+      const seen = new Set();
+      crossSellProducts = (data?.products || [])
+        .flatMap((product) => (product.links || [])
+          .filter((link) => link.linkTypes?.includes('crosssell'))
+          .map((link) => link.product?.sku))
+        .filter((sku) => sku && !inCart.has(sku) && !seen.has(sku) && (seen.add(sku), true));
+
+      if (crossSellProducts.length) {
+        const details = await CS_FETCH_GRAPHQL.fetchGraphQl(CROSS_SELL_QUERY, {
+          variables: { skus: crossSellProducts },
+        });
+        if (details.errors?.length) throw new Error(details.errors[0].message || 'Cross-sell details failed');
+        crossSellProducts = (details.data?.products || [])
+          .filter((product) => product.__typename === 'SimpleProductView' && product.addToCartAllowed !== false);
+      }
+      renderCrossSells();
+    } catch (error) {
+      console.error('Unable to load cross-sell products', error);
+      $crossSells.innerHTML = '';
+    }
+  }
+
   let cartViewEventPublished = false;
   // Events
   events.on(
     'cart/data',
     (cartData) => {
       toggleEmptyCart(isCartEmpty(cartData));
+      loadCrossSells(cartData);
 
       const isEmpty = !cartData || cartData.totalQuantity < 1;
       $giftOptions.style.display = isEmpty ? 'none' : '';

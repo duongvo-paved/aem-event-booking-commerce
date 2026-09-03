@@ -132,3 +132,106 @@
     flex-basis: auto;
   }
 }
+
+.cart__cross-sells-heading {
+  margin: 0 0 var(--spacing-medium);
+  color: var(--color-neutral-800);
+  font: var(--type-headline-2-strong-font);
+}
+
+.cart__cross-sells-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 300px));
+  gap: var(--spacing-medium);
+  justify-content: start;
+}
+
+.cart__cross-sell-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xsmall);
+  min-width: 0;
+  max-width: 300px;
+}
+
+.cart__cross-sell-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--color-neutral-200);
+  object-fit: contain;
+}
+
+.cart__cross-sell-name,
+.cart__cross-sell-sku,
+.cart__cross-sell-price {
+  margin: 0;
+}
+
+.cart__cross-sell-name {
+  color: var(--color-neutral-800);
+  font: var(--type-body-1-strong-font);
+  letter-spacing: var(--type-body-1-strong-letter-spacing);
+}
+
+.cart__cross-sell-sku {
+  color: var(--color-neutral-600);
+  font: var(--type-body-2-default-font);
+  letter-spacing: var(--type-body-2-default-letter-spacing);
+}
+
+.cart__cross-sell-price {
+  color: var(--color-neutral-700);
+  font: var(--type-body-1-default-font);
+  letter-spacing: var(--type-body-1-default-letter-spacing);
+}
+
+.cart__cross-sell-add {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xsmall);
+}
+
+.cart__cross-sell-add-icon {
+  display: inline-flex;
+}
+
+.cart__cross-sells-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-small);
+  margin-top: var(--spacing-small);
+}
+
+.cart__cross-sells-pagination-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--spacing-medium);
+  height: var(--spacing-medium);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-neutral-800);
+  cursor: pointer;
+}
+
+.cart__cross-sells-pagination-button:disabled {
+  color: var(--color-neutral-500);
+  cursor: default;
+}
+
+.cart__cross-sells-pagination-icon {
+  display: inline-flex;
+}
+
+.cart__cross-sells-pagination-icon--previous {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 767px) {
+  .cart__cross-sells-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
