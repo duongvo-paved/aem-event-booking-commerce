@@ -193,8 +193,12 @@ Acceptance criteria:
 - [ ] EDS reads `external_event_id` from the Commerce PDP response and requests one matching Event API detail record.
 - [ ] Commerce remains authoritative for the product title, category, short description, and long description.
 - [ ] The page renders organizer, UTC schedule converted using the supplied source timezone, venue information, age requirement, tags, and other approved event-domain metadata when supplied.
-- [ ] `venue` is a non-null object containing required, non-null, non-empty string fields `name` and `address`.
-- [ ] No optional venue fields are part of the approved v1 storefront DTO.
+- [ ] `venue` is a non-null object containing required, non-null, non-empty string
+  fields `venue_id` and `name`, plus an `address` object with non-empty `lines`,
+  `city`, and `country_code` fields.
+- [ ] `allocations` is a non-empty array of unique event-allocation identities,
+  each containing a Commerce child SKU, capacity/availability, and a required
+  Space; Zone is optional.
 - [ ] Event enrichment is presented as supplemental metadata and never overwrites Commerce-owned title, category, or description fields.
 - [ ] Dates remain unambiguous across browser locale, event timezone, and daylight-saving transitions.
 - [ ] An unknown/inactive enrichment record preserves the Commerce PDP but disables event booking until the approved fallback is confirmed.
@@ -394,24 +398,35 @@ This preserves useful implementation discoveries—such as current action paths 
   "starts_at_utc": "ISO-8601 string",
   "ends_at_utc": "ISO-8601 string",
   "timezone": "IANA timezone string",
-  "venue": {}
-}
-```
-
-Commerce remains authoritative for title, category, short description, and long description; the current Integration public projection no longer returns those fields. Current Integration source does not constrain the public `venue` shape.
-
-The approved target v1 venue projection is:
-
-```json
-{
   "venue": {
+    "venue_id": "string",
     "name": "non-empty string",
-    "address": "non-empty string"
-  }
+    "address": {
+      "lines": ["non-empty string"],
+      "city": "non-empty string",
+      "country_code": "non-empty string"
+    }
+  },
+  "allocations": [{
+    "event_allocation_id": "string",
+    "commerce_sku": "string",
+    "allocated_capacity": "non-negative integer",
+    "available_quantity": "non-negative integer",
+    "space": {
+      "space_id": "string",
+      "name": "string"
+    },
+    "zone": {
+      "zone_id": "string",
+      "name": "string"
+    }
+  }]
 }
 ```
 
-No optional venue fields are approved for v1. The venue object and both fields must be non-null and non-empty. Integration must capture this target in the versioned public contract and contract tests before storefront implementation approval.
+Commerce remains authoritative for title, category, short description, and long description; the current Integration public projection no longer returns those fields.
+
+The storefront normalizes the structured address into a display string while retaining the venue ID and address components. A missing `zone` is valid when a Space is allocated directly. Unknown fields and malformed allocation identities are rejected by the storefront response normalizer.
 
 ### 7.4 Create Booking Intent
 
@@ -524,9 +539,9 @@ required by Sections 8 and 13 are approved.
   deployment. Source and unit-test evidence therefore remains Provisional.
 - No Integration intent-replacement action supports the EDS cart
   quantity/participant editing transaction required by EDS-FR-7.
-- Public event projection code passes `venue` through without enforcing the
-  approved v1 object containing exactly non-empty `name` and `address`; its tests
-  currently accept a venue containing only `name`.
+- The storefront now enforces the current structured venue and allocation
+  projection, including the `events` enrichment envelope, venue ID, address
+  components, and grouped Space/Zone allocation identities.
 - Browser-required CORS response headers or an approved same-origin proxy were
   not found in the public action response path. Per-environment EDS origin
   allowlists and browser preflight/response tests remain required.
@@ -708,7 +723,9 @@ Before any new block is created, Phase 2 must perform the mandatory block reusab
 
 ## 15. Resolved Stakeholder Decisions
 
-1. The approved v1 `venue` DTO contains required non-null, non-empty `name` and `address` fields and no optional fields.
+1. The current `venue` DTO contains required non-null, non-empty `venue_id`,
+   `name`, and structured `address` fields; event booking uses grouped
+   `allocations` with a required Space and optional Zone.
 2. Commerce event discovery uses `is_event_ticket`, `event_type`, `event_status`, and `event_date`; remaining event-domain filters may be page-local as defined in EDS-FR-2.
 3. EDS must support editing event quantity and participant details in cart through the failure-safe replacement-intent workflow defined in EDS-FR-7.
 4. Bespoke consent/privacy copy and a privacy-policy URL are deferred for the demo, while the explicit API-required consent control, 180-day PII retention, Australian residency, and PII safeguards remain unchanged.

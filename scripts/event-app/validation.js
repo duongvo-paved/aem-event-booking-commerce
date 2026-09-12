@@ -52,21 +52,21 @@ export function validateBookingForm(value, maximumQuantity = 20) {
   }
 
   if (
-    !Array.isArray(value?.participants)
-    || value.participants.length !== value?.quantity
+    !Array.isArray(value?.attendees)
+    || value.attendees.length !== value?.quantity
   ) {
-    errors.participants = 'Enter one participant for each ticket.';
+    errors.attendees = 'Enter one attendee for each ticket.';
   } else {
-    value.participants.forEach((participant, index) => {
-      if (!hasExactFields(participant, ['firstName', 'lastName'])) {
-        errors[`participant-${index}`] = 'Enter the participant details.';
+    value.attendees.forEach((attendee, index) => {
+      if (!hasExactFields(attendee, ['firstName', 'lastName'])) {
+        errors[`attendee-${index}`] = 'Enter the attendee details.';
         return;
       }
-      if (!isNonEmptyString(participant.firstName)) {
-        errors[`participant-${index}-firstName`] = 'Enter the first name.';
+      if (!isNonEmptyString(attendee.firstName)) {
+        errors[`attendee-${index}-firstName`] = 'Enter the first name.';
       }
-      if (!isNonEmptyString(participant.lastName)) {
-        errors[`participant-${index}-lastName`] = 'Enter the last name.';
+      if (!isNonEmptyString(attendee.lastName)) {
+        errors[`attendee-${index}-lastName`] = 'Enter the last name.';
       }
     });
   }
@@ -89,9 +89,9 @@ export function normalizeBookingForm(value) {
       firstName: value.contact.firstName.trim(),
       lastName: value.contact.lastName.trim(),
     }),
-    participants: Object.freeze(value.participants.map((participant) => Object.freeze({
-      firstName: participant.firstName.trim(),
-      lastName: participant.lastName.trim(),
+    attendees: Object.freeze(value.attendees.map((attendee) => Object.freeze({
+      firstName: attendee.firstName.trim(),
+      lastName: attendee.lastName.trim(),
     }))),
     quantity: value.quantity,
   });

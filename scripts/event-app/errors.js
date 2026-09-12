@@ -40,7 +40,7 @@ export function mapEventAppStatusToError(status) {
   if (status === 409) {
     return new EventAppError(
       EVENT_APP_ERROR_TYPES.DUPLICATE,
-      'A booking intent already exists for this cart and SKU',
+      'The event booking could not be merged for this cart allocation',
       { status },
     );
   }
@@ -58,7 +58,7 @@ export function getSafeErrorMessage(error) {
     case EVENT_APP_ERROR_TYPES.NOT_FOUND:
       return 'This event or booking could not be found.';
     case EVENT_APP_ERROR_TYPES.DUPLICATE:
-      return 'This event is already being booked in your cart.';
+      return 'This event allocation is already being booked in your cart.';
     case EVENT_APP_ERROR_TYPES.INTEGRITY:
       return 'This event needs attention in your cart before you can book it again.';
     case EVENT_APP_ERROR_TYPES.REQUEST:

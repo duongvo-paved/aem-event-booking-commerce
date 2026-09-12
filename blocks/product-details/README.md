@@ -4,13 +4,13 @@
 
 The Product Details block provides comprehensive product detail page functionality using multiple @dropins/storefront-pdp containers. It handles product display, configuration, cart operations, wishlist integration, and SEO optimization with dynamic mode switching between add and update operations.
 
-For products with the Commerce `is_event_ticket` attribute, the block preserves the
-standard Commerce PDP content but replaces ordinary add-to-cart submission with an
-event-booking experience. The event experience loads allowlisted metadata using
-`external_event_id`, collects one attendee per ticket, displays a live
-pre-cart ticket summary, creates a booking intent, adds the product, and
-then applies `booking_intent_ref` using the SaaS
-`setCustomAttributesOnCartItem` mutation.
+For grouped event parent products with the Commerce `is_event_ticket` attribute, the
+block preserves the standard Commerce PDP content but replaces ordinary add-to-cart
+submission with an event-booking experience. The event experience loads allowlisted
+metadata and allocation data using `external_event_id`, collects one attendee per
+ticket, displays a live pre-cart ticket summary, creates or merges a booking intent,
+adds the selected virtual child product, and then applies `booking_intent_ref` using
+the SaaS `setCustomAttributesOnCartItem` mutation.
 
 ## Integration
 
@@ -69,33 +69,35 @@ No events are emitted by this block. -->
 2. Booking is disabled when Event App configuration, `external_event_id`,
    enrichment, Commerce stock, or add-to-cart eligibility is unavailable.
 3. Contact and attendee values stay in active form memory only.
-4. A stable `source_request_id` is reused for a logical retry.
-5. The active Commerce cart is checked before intent creation. A correlated SKU is
-   blocked and links the shopper to the cart.
-6. The create-intent request includes `commerce_cart_id` and `commerce_sku`; the
-   Integration contract must reject a different request for the same active pair
-   with HTTP `409`.
-7. A successful intent and exact cart item UID are retained in memory after a
-   recoverable failure, so retry repairs correlation without creating another
-   intent or adding quantity again.
-8. Event products do not use PDP cart-update mode; cart participant editing remains
+4. The grouped parent displays one native allocation selector per active Space/Zone
+   allocation; unavailable allocations are disabled.
+5. Quantity is bounded by the selected allocation availability and the 20-ticket
+   contract limit.
+6. A stable `source_request_id` is reused for a logical retry.
+7. The create-intent request includes the selected child `commerce_sku`,
+   `event_allocation_id`, and canonical `attendees`. A different request for the
+   same active cart/event/child-SKU/allocation is merged by Integration.
+8. The matching child cart line is increased by the submitted quantity. A
+   successful intent and exact cart item UID are retained in memory after a
+   recoverable failure, so retry repairs the cart without replaying the merge.
+9. Event products do not use PDP cart-update mode; cart attendee editing remains
    gated on the separate replacement-intent contract.
-9. Event details remain visible and the booking form is rendered in a native accordion
+10. Event details remain visible and the booking form is rendered in a native accordion
    below them. The accordion is expanded by default and moves between desktop/mobile
    event-detail mounts without duplicating form state.
-10. The event-only quantity selector is rendered inside the booking form, starts at
+11. The event-only quantity selector is rendered inside the booking form, starts at
     zero, is labeled “Number of attendees,” uses a compact right-aligned width, and keeps the incrementer border around
     all controls. Its value controls attendee count and the live ticket summary; Add
     to Cart remains disabled until at least one ticket is selected.
-11. The event summary is a collapsible, expanded-by-default pre-cart preview showing
+12. The event summary is a collapsible, expanded-by-default pre-cart preview showing
     ticket count, unit price, and total. It appears below the product description at
     every responsive breakpoint.
-12. Consent and Add to Cart render below the Summary while remaining associated with
+13. Consent and Add to Cart render below the Summary while remaining associated with
    the accordion form; the cart action includes the default cart icon and keeps the
    wishlist action beside it. Successful bookings close the accordion and render the
    localized success message below Summary, reset the PDP quantity to zero, and keep
    the message until dismissed.
-13. Event galleries use full-width, uncropped media with dot navigation on desktop;
+14. Event galleries use full-width, uncropped media with dot navigation on desktop;
     standard product galleries retain desktop thumbnail navigation.
 
 ### Error Handling

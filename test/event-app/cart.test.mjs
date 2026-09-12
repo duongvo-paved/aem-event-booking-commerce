@@ -15,7 +15,7 @@ const form = Object.freeze({
     firstName: 'Ada',
     lastName: 'Lovelace',
   },
-  participants: [{ firstName: 'Ada', lastName: 'Lovelace' }],
+  attendees: [{ firstName: 'Ada', lastName: 'Lovelace' }],
   quantity: 1,
 });
 
@@ -109,17 +109,21 @@ test('creates one intent, adds one item, and correlates it through SaaS GraphQL'
 
   const result = await addCorrelatedEventProduct({
     cartApi,
+    commerceSku: 'event-sku',
     createIntent: async (payload) => {
       calls.createIntent += 1;
       assert.equal(payload.commerce_cart_id, 'cart-id');
       assert.equal(payload.commerce_sku, 'event-sku');
+      assert.equal(payload.event_allocation_id, 'allocation-1');
+      assert.deepEqual(payload.attendees, form.attendees);
       assert.equal(payload.source_request_id, 'source-request');
       return { intentRef: 'intent-ref' };
     },
     eventId: 'event-id',
+    eventAllocationId: 'allocation-1',
     form,
     pendingSubmission,
-    values: { quantity: 1, sku: 'event-sku' },
+    values: { quantity: 1, sku: 'parent-sku', parentSku: 'parent-sku' },
   });
 
   assert.equal(result, 'intent-ref');
@@ -158,12 +162,14 @@ test('preserves the canonical Commerce SKU case in the create-intent payload', a
 
   await addCorrelatedEventProduct({
     cartApi,
+    commerceSku: 'event-sku',
     commerceSku: 'Event-SKU',
     createIntent: async (payload) => {
       assert.equal(payload.commerce_sku, 'Event-SKU');
       return { intentRef: 'intent-ref' };
     },
     eventId: 'event-id',
+    eventAllocationId: 'allocation-1',
     form,
     pendingSubmission: createPending(),
     values: { quantity: 1, sku: 'event-sku' },
@@ -172,38 +178,83 @@ test('preserves the canonical Commerce SKU case in the create-intent payload', a
   assert.equal(addedItem.sku, 'Event-SKU');
 });
 
-test('blocks an already correlated SKU before creating another intent', async () => {
+test('merges an existing correlated allocation and increases its cart quantity', async () => {
   let createIntentCalls = 0;
-  let addCalls = 0;
+  const updatedItems = [];
   const cartApi = {
-    addProductsToCart: async () => {
-      addCalls += 1;
-    },
+    addProductsToCart: async () => { throw new Error('must not add'); },
     createGuestCart: async () => 'unused',
-    fetchGraphQl: async () => cartLinesResponse([
-      cartLine({ intentRef: 'existing-intent' }),
-    ]),
+    fetchGraphQl: async (query) => query.includes('SetBookingIntent')
+      ? setAttributeResponse('existing-intent')
+      : cartLinesResponse([cartLine({ intentRef: 'existing-intent' })]),
     initializeCart: async () => ({ id: 'cart-id', items: [] }),
+    refreshCart: async () => null,
+    updateProductsFromCart: async (items) => { updatedItems.push(...items); },
+  };
+
+  const pendingSubmission = createPending();
+  await addCorrelatedEventProduct({
+    cartApi,
+    commerceSku: 'event-sku',
+    createIntent: async (payload) => {
+      createIntentCalls += 1;
+      assert.equal(payload.event_allocation_id, 'allocation-1');
+      return { intentRef: 'existing-intent' };
+    },
+    eventAllocationId: 'allocation-1',
+    eventId: 'event-id',
+    form,
+    pendingSubmission,
+    values: { quantity: 1, sku: 'event-sku' },
+  });
+  assert.equal(createIntentCalls, 1);
+  assert.deepEqual(updatedItems, [{ quantity: 2, uid: 'line-uid' }]);
+  assert.equal(pendingSubmission.stage, 'correlated');
+});
+
+test('repairs merged cart quantity without replaying the intent request', async () => {
+  let createIntentCalls = 0;
+  let updateCalls = 0;
+  const cartApi = {
+    fetchGraphQl: async (query) => query.includes('SetBookingIntent')
+      ? setAttributeResponse('existing-intent')
+      : cartLinesResponse([cartLine({ intentRef: 'existing-intent' })]),
+    initializeCart: async () => ({ id: 'cart-id', items: [] }),
+    refreshCart: async () => null,
+    updateProductsFromCart: async () => {
+      updateCalls += 1;
+      if (updateCalls === 1) throw new Error('cart unavailable');
+    },
+  };
+  const pendingSubmission = createPending();
+  const input = {
+    cartApi,
+    commerceSku: 'event-sku',
+    createIntent: async () => {
+      createIntentCalls += 1;
+      return { intentRef: 'existing-intent' };
+    },
+    eventAllocationId: 'allocation-1',
+    eventId: 'event-id',
+    form,
+    pendingSubmission,
+    values: { quantity: 1, sku: 'event-sku' },
   };
 
   await assert.rejects(
-    addCorrelatedEventProduct({
-      cartApi,
-      createIntent: async () => {
-        createIntentCalls += 1;
-      },
-      eventId: 'event-id',
-      form,
-      pendingSubmission: createPending(),
-      values: { quantity: 1, sku: 'event-sku' },
-    }),
-    (error) => error.type === EVENT_APP_ERROR_TYPES.DUPLICATE,
+    addCorrelatedEventProduct(input),
+    (error) => error.type === EVENT_APP_ERROR_TYPES.UNAVAILABLE
+      && error.retryable,
   );
-  assert.equal(createIntentCalls, 0);
-  assert.equal(addCalls, 0);
+  await addCorrelatedEventProduct(input);
+
+  assert.equal(createIntentCalls, 1);
+  assert.equal(updateCalls, 2);
+  assert.equal(pendingSubmission.targetCartQuantity, 2);
+  assert.equal(pendingSubmission.stage, 'correlated');
 });
 
-test('blocks an uncorrelated existing SKU before creating another intent', async () => {
+test('blocks an uncorrelated existing child line before creating an intent', async () => {
   let createIntentCalls = 0;
   const cartApi = {
     createGuestCart: async () => 'unused',
@@ -217,6 +268,7 @@ test('blocks an uncorrelated existing SKU before creating another intent', async
       createIntent: async () => {
         createIntentCalls += 1;
       },
+      eventAllocationId: 'allocation-1',
       eventId: 'event-id',
       form,
       pendingSubmission: createPending(),
@@ -253,10 +305,12 @@ test('repairs an uncorrelated line on retry without creating or adding again', a
 
   await addCorrelatedEventProduct({
     cartApi,
+    commerceSku: 'event-sku',
     createIntent: async () => {
       createIntentCalls += 1;
     },
     eventId: 'event-id',
+    eventAllocationId: 'allocation-1',
     form,
     pendingSubmission,
     values: { quantity: 1, sku: 'event-sku' },
@@ -271,6 +325,7 @@ test('repairs an uncorrelated line on retry without creating or adding again', a
 
 test('a network failure retains the exact cart item UID for correlation-only retry', async () => {
   let addCalls = 0;
+  let lineReads = 0;
   let setAttributeCalls = 0;
   const cartApi = {
     addProductsToCart: async () => {
@@ -285,7 +340,8 @@ test('a network failure retains the exact cart item UID for correlation-only ret
         if (setAttributeCalls === 1) throw new TypeError('network unavailable');
         return setAttributeResponse();
       }
-      return cartLinesResponse();
+      lineReads += 1;
+      return lineReads <= 2 ? cartLinesResponse() : cartLinesResponse([cartLine()]);
     },
     refreshCart: async () => null,
     updateProductsFromCart: async () => null,
@@ -297,10 +353,12 @@ test('a network failure retains the exact cart item UID for correlation-only ret
   });
   const input = {
     cartApi,
+    commerceSku: 'event-sku',
     createIntent: async () => {
       throw new Error('must not create another intent');
     },
     eventId: 'event-id',
+    eventAllocationId: 'allocation-1',
     form,
     pendingSubmission,
     values: { quantity: 1, sku: 'event-sku' },
@@ -345,13 +403,15 @@ test('a definitive correlation failure removes only the newly added cart item', 
   await assert.rejects(
     addCorrelatedEventProduct({
       cartApi,
+      commerceSku: 'event-sku',
       createIntent: async () => {
         throw new Error('must not create another intent');
       },
-      eventId: 'event-id',
+    eventId: 'event-id',
+    eventAllocationId: 'allocation-1',
       form,
       pendingSubmission,
-      values: { quantity: 1, sku: 'event-sku' },
+    values: { quantity: 1, sku: 'event-sku' },
     }),
     (error) => error.type === EVENT_APP_ERROR_TYPES.CONFIGURATION,
   );

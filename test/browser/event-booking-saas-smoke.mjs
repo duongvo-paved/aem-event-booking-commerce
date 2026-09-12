@@ -116,6 +116,21 @@ await evaluate(`(async () => {
       address: '1 Market Street, Sydney',
       name: 'Demo Hall',
     },
+    allocations: [{
+      allocatedCapacity: 10,
+      availableQuantity: 10,
+      commerceSku: 'event-child-sku',
+      eventAllocationId: 'allocation-1',
+      space: { id: 'space-1', name: 'Room A' },
+      zone: { id: 'zone-1', name: 'Front' },
+    }, {
+      allocatedCapacity: 10,
+      availableQuantity: 0,
+      commerceSku: 'event-child-sku-2',
+      eventAllocationId: 'allocation-2',
+      space: { id: 'space-2', name: 'Room B' },
+      zone: null,
+    }],
   };
   const product = {
     name: 'SaaS Event Ticket',
@@ -131,8 +146,8 @@ await evaluate(`(async () => {
     document.querySelector('[name="contact-firstName"]').value = 'Ada';
     document.querySelector('[name="contact-lastName"]').value = 'Lovelace';
     document.querySelector('[name="contact-email"]').value = 'ada@example.test';
-    document.querySelector('[name="participant-0-firstName"]').value = 'Ada';
-    document.querySelector('[name="participant-0-lastName"]').value = 'Lovelace';
+    document.querySelector('[name="attendee-0-firstName"]').value = 'Ada';
+    document.querySelector('[name="attendee-0-lastName"]').value = 'Lovelace';
     document.querySelector('[name="consent"]').checked = true;
   };
 
@@ -168,7 +183,17 @@ await evaluate(`(async () => {
 await waitFor('window.__bookingTest.duplicateCalls.length === 1');
 await waitFor('Boolean(document.querySelector(".event-booking__feedback a"))');
 
+const allocationReport = await evaluate(`(() => {
+  const inputs = [...document.querySelectorAll('[name="event-allocation"]')];
+  return {
+    count: inputs.length,
+    selected: inputs.filter((input) => input.checked).length,
+    unavailable: inputs.filter((input) => input.disabled).length,
+  };
+})()`);
+
 const report = {
+  allocation: allocationReport,
   duplicate: await evaluate(`({
     callCount: window.__bookingTest.duplicateCalls.length,
     emailRetained:
@@ -420,11 +445,12 @@ report.canonicalSku = await evaluate(`(async () => {
       observed.intentSku = payload.commerce_sku;
       return { intentRef: 'intent-ref' };
     },
+    eventAllocationId: 'allocation-1',
     eventId: 'event-id',
     form: {
       consent: true,
       contact: { email: 'ada@example.test' },
-      participants: [{ firstName: 'Ada', lastName: 'Lovelace' }],
+      attendees: [{ firstName: 'Ada', lastName: 'Lovelace' }],
       quantity: 1,
     },
     pendingSubmission,
@@ -440,11 +466,16 @@ report.canonicalSku = await evaluate(`(async () => {
 assert.deepEqual(report.duplicate, {
   callCount: 1,
   emailRetained: true,
-  feedback: 'This event is already being booked in your cart. View cart',
+    feedback: 'This event allocation is already being booked in your cart. View cart',
   linkHref: '/cart',
   linkText: 'View cart',
   liveMode: 'assertive',
   statusRole: 'status',
+});
+assert.deepEqual(report.allocation, {
+  count: 2,
+  selected: 1,
+  unavailable: 1,
 });
 assert.equal(report.retryFailure.emailRetained, true);
 assert.match(report.retryFailure.feedback, /temporarily unavailable/i);

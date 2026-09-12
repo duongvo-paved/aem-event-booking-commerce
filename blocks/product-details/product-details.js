@@ -356,6 +356,7 @@ export default async function decorate(block) {
   let addToCart = null;
   let bookingSuccessAlert = null;
   let bookingFocusTarget = null;
+  let selectedAllocation = null;
 
   async function renderBookingSuccess(message) {
     bookingSuccessAlert?.remove();
@@ -425,10 +426,24 @@ export default async function decorate(block) {
           onClose: () => {
             accordion.summary.focus();
           },
+          onAllocationChange: (allocation) => {
+            selectedAllocation = allocation;
+            pdpApi.setProductConfigurationValues((previous) => ({
+              ...(previous || {}),
+              quantity: 0,
+              sku: allocation?.commerceSku || product.sku,
+            }));
+          },
           onQuantityChange: (quantity) => eventSummary?.setQuantity(quantity),
           onQuantityReset: () => {
             pdpApi.setProductConfigurationValues((previous) => {
-              if (previous) return { ...previous, quantity: 0 };
+              if (previous) {
+                return {
+                  ...previous,
+                  quantity: 0,
+                  sku: selectedAllocation?.commerceSku || product.sku,
+                };
+              }
               return { quantity: 0, sku: product.sku };
             });
           },
@@ -439,24 +454,29 @@ export default async function decorate(block) {
               console.error('Failed to render booking success alert:', error);
             });
           },
-          addToCart: async ({ form, pendingSubmission }) => {
-            const values = pdpApi.getProductConfigurationValues();
-            if (!pdpApi.isProductConfigurationValid()) {
+          addToCart: async ({ allocation, form, pendingSubmission }) => {
+            if (!allocation) {
               throw new EventAppError(
                 EVENT_APP_ERROR_TYPES.REQUEST,
-                'Product configuration is invalid',
+                'Select an event allocation',
               );
             }
-
             const cartApi = await import('@dropins/storefront-cart/api.js');
             return addCorrelatedEventProduct({
               cartApi,
-              commerceSku: product.sku,
+              commerceSku: allocation.commerceSku,
               createIntent: (payload) => eventClient.createIntent(payload),
+              eventAllocationId: allocation.eventAllocationId,
               eventId: event.eventId,
               form,
               pendingSubmission,
-              values,
+              // The event form validates booking details and selects the
+              // virtual child. Parent PDP option state must not be sent with
+              // the child SKU.
+              values: {
+                quantity: form.quantity,
+                sku: allocation.commerceSku,
+              },
             });
           },
           actionsContainer: $eventActionsContent,

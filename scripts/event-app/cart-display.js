@@ -102,7 +102,7 @@ function createSummary(item, correlationStatus, event) {
     cartItemUid: item.uid,
     correlationStatus,
     quantity: item.quantity,
-    sku: item.topLevelSku || item.sku,
+    sku: item.sku,
   };
   if (event) summary.event = event;
   return Object.freeze(summary);

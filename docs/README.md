@@ -20,10 +20,11 @@ When enabled in `config.json`, the storefront provides:
 
 - Event metadata on the product-detail page, including date, venue, organizer
   when supplied, tags, and age requirement.
-- An accessible booking form with contact details, consent, and one participant
-  for each ticket quantity.
-- Idempotent booking-intent creation followed by addition of the Commerce product
-  to the active cart.
+- An accessible booking form with contact details, consent, an allocation selector,
+  and one attendee for each ticket quantity.
+- Idempotent booking-intent creation or identity-based merge followed by addition
+  or quantity reconciliation of the selected virtual child product in the active
+  cart.
 - A `booking_intent_ref` custom cart-item attribute that correlates the exact cart
   line with the booking intent.
 - Privacy-safe booking-status panels in the cart, mini-cart, checkout, and order
@@ -81,13 +82,13 @@ sequenceDiagram
   participant E as Event App API
   participant C as Commerce cart
 
-  S->>P: Select quantity and submit booking form
+  S->>P: Select Space/Zone allocation, quantity, and submit booking form
   P->>E: Get event details (external_event_id)
   P->>C: Initialize or retrieve active cart
   P->>C: Read existing cart lines
-  P->>E: Create intent (cart ID, SKU, participants, consent)
+  P->>E: Create or merge intent (cart ID, event, child SKU, allocation, attendees)
   E-->>P: Opaque intent reference
-  P->>C: Add ticket product to cart
+  P->>C: Add child product or increase matching line quantity
   P->>C: Set booking_intent_ref on the exact cart item UID
   P->>C: Refresh cart
   P-->>S: Confirm item was added

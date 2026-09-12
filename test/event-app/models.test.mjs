@@ -20,9 +20,22 @@ const publicEvent = {
   tags: ['demo'],
   timezone: 'Australia/Sydney',
   venue: {
-    address: '1 Demo Street, Sydney NSW',
+    address: {
+      city: 'Sydney',
+      country_code: 'AU',
+      lines: ['1 Demo Street'],
+    },
     name: 'Demo Hall',
+    venue_id: 'venue-1',
   },
+  allocations: [{
+    allocated_capacity: 10,
+    available_quantity: 8,
+    commerce_sku: 'event-child-1',
+    event_allocation_id: 'allocation-1',
+    space: { name: 'Room A', space_id: 'space-1' },
+    zone: { name: 'Front', zone_id: 'zone-1' },
+  }],
 };
 
 test('reads event identifiers from supported Commerce attribute shapes', () => {
@@ -70,8 +83,20 @@ test('normalizes a strict public event and keyed enrichment map', () => {
   const event = normalizePublicEvent(publicEvent, 'event-1');
   assert.equal(event.eventId, 'event-1');
   assert.deepEqual(event.venue, {
-    address: '1 Demo Street, Sydney NSW',
+    address: '1 Demo Street, Sydney, AU',
+    addressLines: ['1 Demo Street'],
+    city: 'Sydney',
+    countryCode: 'AU',
+    id: 'venue-1',
     name: 'Demo Hall',
+  });
+  assert.deepEqual(event.allocations[0], {
+    allocatedCapacity: 10,
+    availableQuantity: 8,
+    commerceSku: 'event-child-1',
+    eventAllocationId: 'allocation-1',
+    space: { id: 'space-1', name: 'Room A' },
+    zone: { id: 'zone-1', name: 'Front' },
   });
 
   const events = normalizeEventMap({
@@ -93,6 +118,24 @@ test('rejects unexpected event and intent response fields', () => {
   assert.throws(() => normalizePublicEvent({
     ...publicEvent,
     description: 'Commerce owns this field',
+  }));
+  assert.throws(() => normalizePublicEvent({
+    ...publicEvent,
+    allocations: [],
+  }));
+  assert.throws(() => normalizePublicEvent({
+    ...publicEvent,
+    venue: {
+      address: 'legacy address',
+      name: 'Demo Hall',
+    },
+  }));
+  assert.throws(() => normalizePublicEvent({
+    ...publicEvent,
+    allocations: [
+      publicEvent.allocations[0],
+      publicEvent.allocations[0],
+    ],
   }));
   assert.throws(() => normalizeIntentResponse({
     intent_ref: 'intent',

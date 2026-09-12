@@ -9,7 +9,7 @@ Products whose Commerce attributes include `is_event_ticket` and
 batch request is made for the current Commerce page, results are joined by event
 ID, and Commerce ordering is preserved. Enrichment failures leave the Commerce
 cards available. Event products always route to the PDP instead of adding directly
-to cart because participant data and booking-intent creation are required first.
+to cart because attendee data, allocation selection, and booking-intent creation are required first.
 
 ## Configuration Options
 

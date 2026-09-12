@@ -14,7 +14,7 @@ const validForm = {
     firstName: 'Ada',
     lastName: 'Lovelace',
   },
-  participants: [
+  attendees: [
     { firstName: 'Ada', lastName: 'Lovelace' },
     { firstName: 'Grace', lastName: 'Hopper' },
   ],
@@ -37,7 +37,7 @@ test('validates and normalizes the exact booking form shape', () => {
   });
 });
 
-test('rejects participant mismatch, extra contact fields, and missing consent', () => {
+test('rejects attendee mismatch, extra contact fields, and missing consent', () => {
   const result = validateBookingForm({
     ...validForm,
     consent: false,
@@ -45,13 +45,13 @@ test('rejects participant mismatch, extra contact fields, and missing consent', 
       ...validForm.contact,
       telephone: 'not-approved',
     },
-    participants: validForm.participants.slice(0, 1),
+    attendees: validForm.attendees.slice(0, 1),
   });
 
   assert.equal(result.valid, false);
   assert.ok(result.errors.contact);
   assert.ok(result.errors.consent);
-  assert.ok(result.errors.participants);
+  assert.ok(result.errors.attendees);
 });
 
 test('requires a high-entropy base64url-style booking reference', () => {

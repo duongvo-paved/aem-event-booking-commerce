@@ -251,7 +251,7 @@ test('creates immediate checkout fallbacks without sensitive correlation data', 
     cartItemUid: 'one',
     correlationStatus: 'unavailable',
     quantity: 2,
-    sku: 'event-ticket-sku',
+    sku: 'sku-one',
   }]);
   assert.doesNotMatch(JSON.stringify(summaries), /opaque-intent|participant|contact/i);
 });

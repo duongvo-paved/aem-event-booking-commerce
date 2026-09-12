@@ -5,7 +5,7 @@
 The Event Ticket block renders the allowlisted public booking and ticket
 projection reached from an emailed hosted link. It accepts only the
 `booking_ref` URL parameter and never accepts an order number, intent reference,
-participant data, Runtime endpoint, or QR value from authored content.
+attendee data, Runtime endpoint, or QR value from authored content.
 
 Building new because: no existing project block performs a public non-Commerce
 booking lookup or renders booking status and backend-generated QR images.

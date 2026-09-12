@@ -61,12 +61,13 @@ configuration must remain disabled until:
 5. Ticket lookup returns the strict public projection without `intent_ref` and with
    approved HTTPS `qr_render_url` values.
 
-The approved `create-intent` contract must include `commerce_cart_id` and
-`commerce_sku`. Integration must enforce one active intent for that pair:
+The approved `create-intent` contract must include `commerce_cart_id`, `event_id`,
+`commerce_sku`, and `event_allocation_id` for grouped events. Integration must
+enforce one active intent for that identity:
 
 - the same `source_request_id` returns the original intent with HTTP `200`;
-- a different request for an active pair returns HTTP `409` with
-  `BOOKING_ALREADY_EXISTS`; and
+- a different request for an active identity atomically increments quantity and
+  appends `attendees`; and
 - a new pair returns HTTP `201`.
 
 This server-side uniqueness contract is required because browser checks cannot
@@ -88,5 +89,5 @@ The storefront must preserve the intent reference and case-sensitive SKU and mus
 never call cancellation before Commerce confirms removal.
 
 Never place IMS credentials, Database credentials, SendGrid keys, QR secrets,
-participant data, booking references, intent references, or ticket references in
+attendee data, booking references, intent references, or ticket references in
 this public configuration.

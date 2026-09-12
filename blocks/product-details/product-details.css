@@ -217,7 +217,7 @@
 }
 
 .block.product-details .event-booking-accordion .event-booking__contact,
-.block.product-details .event-booking-accordion .event-booking__participant {
+.block.product-details .event-booking-accordion .event-booking__attendee {
   border: var(--shape-border-width-1) solid var(--color-neutral-400);
   border-radius: var(--shape-border-radius-1);
   display: grid;
@@ -233,7 +233,7 @@
 }
 
 .block.product-details .event-booking-accordion .event-booking__contact legend,
-.block.product-details .event-booking-accordion .event-booking__participant legend {
+.block.product-details .event-booking-accordion .event-booking__attendee legend {
   font: var(--type-body-1-strong-font);
   grid-column: 1 / -1;
   letter-spacing: var(--type-body-1-strong-letter-spacing);
@@ -241,9 +241,46 @@
   padding: 0;
 }
 
-.block.product-details .event-booking-accordion .event-booking__participants {
+.block.product-details .event-booking-accordion .event-booking__attendees {
   display: grid;
   gap: var(--spacing-medium);
+}
+
+.block.product-details .event-booking-accordion .event-booking__allocations {
+  border: var(--shape-border-width-1) solid var(--color-neutral-400);
+  border-radius: var(--shape-border-radius-1);
+  display: grid;
+  gap: var(--spacing-small);
+  margin: 0;
+  padding: var(--spacing-small);
+}
+
+.block.product-details .event-booking-accordion .event-booking__allocations legend {
+  font: var(--type-body-1-strong-font);
+  letter-spacing: var(--type-body-1-strong-letter-spacing);
+  padding: 0;
+}
+
+.block.product-details .event-booking-accordion .event-booking__allocation-option {
+  align-items: center;
+  display: grid;
+  gap: var(--spacing-xsmall);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.block.product-details .event-booking-accordion .event-booking__allocation-option label {
+  cursor: pointer;
+}
+
+.block.product-details .event-booking-accordion .event-booking__allocation-option input:disabled + label {
+  color: var(--color-neutral-500);
+  cursor: not-allowed;
+}
+
+.block.product-details .event-booking-accordion .event-booking__allocation-availability {
+  color: var(--color-neutral-600);
+  font: var(--type-body-2-default-font);
+  letter-spacing: var(--type-body-2-default-letter-spacing);
 }
 
 .block.product-details .event-booking-accordion .event-booking__field {
@@ -520,7 +557,7 @@
 }
 
 .event-booking-modal .event-booking__contact,
-.event-booking-modal .event-booking__participant {
+.event-booking-modal .event-booking__attendee {
   border: 0;
   display: grid;
   gap: var(--spacing-medium) var(--spacing-small);
@@ -531,16 +568,53 @@
 }
 
 .event-booking-modal .event-booking__contact legend,
-.event-booking-modal .event-booking__participant legend {
+.event-booking-modal .event-booking__attendee legend {
   font: var(--type-body-1-strong-font);
   letter-spacing: var(--type-body-1-strong-letter-spacing);
   margin-block-end: var(--spacing-small);
   padding: 0;
 }
 
-.event-booking-modal .event-booking__participants {
+.event-booking-modal .event-booking__attendees {
   display: grid;
   gap: var(--spacing-medium);
+}
+
+.event-booking-modal .event-booking__allocations {
+  border: 0;
+  display: grid;
+  gap: var(--spacing-small);
+  margin: 0;
+  padding: 0;
+}
+
+.event-booking-modal .event-booking__allocations legend {
+  font: var(--type-body-1-strong-font);
+  letter-spacing: var(--type-body-1-strong-letter-spacing);
+  margin-block-end: var(--spacing-small);
+  padding: 0;
+}
+
+.event-booking-modal .event-booking__allocation-option {
+  align-items: center;
+  display: grid;
+  gap: var(--spacing-xsmall);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.event-booking-modal .event-booking__allocation-option label {
+  cursor: pointer;
+}
+
+.event-booking-modal .event-booking__allocation-option input:disabled + label {
+  color: var(--color-neutral-500);
+  cursor: not-allowed;
+}
+
+.event-booking-modal .event-booking__allocation-availability {
+  color: var(--color-neutral-600);
+  font: var(--type-body-2-default-font);
+  letter-spacing: var(--type-body-2-default-letter-spacing);
 }
 
 .event-booking-modal .event-booking__field {
@@ -674,12 +748,12 @@
   }
 
   .event-booking-modal .event-booking__contact,
-  .event-booking-modal .event-booking__participant {
+  .event-booking-modal .event-booking__attendee {
     grid-template-columns: 1fr 1fr;
   }
 
   .event-booking-modal .event-booking__contact legend,
-  .event-booking-modal .event-booking__participant legend {
+  .event-booking-modal .event-booking__attendee legend {
     grid-column: 1 / -1;
   }
 
@@ -697,12 +771,12 @@
 
 @media (max-width: 599px) {
   .block.product-details .event-booking-accordion .event-booking__contact,
-  .block.product-details .event-booking-accordion .event-booking__participant {
+  .block.product-details .event-booking-accordion .event-booking__attendee {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .event-booking-modal .event-booking__contact,
-  .event-booking-modal .event-booking__participant {
+  .event-booking-modal .event-booking__attendee {
     grid-template-columns: minmax(0, 1fr);
   }
 }

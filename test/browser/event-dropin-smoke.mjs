@@ -311,10 +311,10 @@ report.commerce.eventPdp = {
             - form.getBoundingClientRect().right) <= 1);
       })(),
       attendeeCount: document.querySelectorAll(
-        '.event-booking-accordion .event-booking__participant',
+        '.event-booking-accordion .event-booking__attendee',
       ).length,
       attendeeText: document.querySelector(
-        '.event-booking-accordion .event-booking__participant legend',
+        '.event-booking-accordion .event-booking__attendee legend',
       )?.innerText.trim() || '',
       summaryVisible: Boolean(document.querySelector(
         '.product-details--event .event-summary',
@@ -420,10 +420,10 @@ await waitFor(`document.querySelector('.event-summary__ticket-count')
   ?.innerText.includes('2')`);
 report.commerce.eventPdp.desktop.quantityInteraction.summary = await evaluate(`({
   participantCount: document.querySelectorAll(
-    '.event-booking-accordion .event-booking__participant',
+    '.event-booking-accordion .event-booking__attendee',
   ).length,
   attendeeText: document.querySelector(
-    '.event-booking-accordion .event-booking__participant legend',
+    '.event-booking-accordion .event-booking__attendee legend',
   )?.innerText.trim(),
   summaryCount: document.querySelector('.event-summary__ticket-count')?.innerText,
   summaryTotal: document.querySelector('.event-summary__total-value')?.innerText,

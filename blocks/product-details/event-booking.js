@@ -137,23 +137,23 @@ function createMetadata(event, labels) {
   return section;
 }
 
-function createParticipantFields(index, labels) {
+function createAttendeeFields(index, labels) {
   const fieldset = document.createElement('fieldset');
-  fieldset.className = 'event-booking__participant';
+  fieldset.className = 'event-booking__attendee';
   const legend = document.createElement('legend');
   legend.textContent = `${getLabel(labels, 'EventAttendeeLabel', 'Attendee')} ${index + 1}`;
 
   const firstName = createField({
     autocomplete: 'off',
-    id: `event-participant-${index}-first-name`,
+    id: `event-attendee-${index}-first-name`,
     label: getLabel(labels, 'EventFirstNameLabel', 'First name'),
-    name: `participant-${index}-firstName`,
+    name: `attendee-${index}-firstName`,
   });
   const lastName = createField({
     autocomplete: 'off',
-    id: `event-participant-${index}-last-name`,
+    id: `event-attendee-${index}-last-name`,
     label: getLabel(labels, 'EventLastNameLabel', 'Last name'),
-    name: `participant-${index}-lastName`,
+    name: `attendee-${index}-lastName`,
   });
 
   fieldset.append(legend, firstName.wrapper, lastName.wrapper);
@@ -168,6 +168,53 @@ function createParticipantFields(index, labels) {
       };
     },
   };
+}
+
+function createAllocationSelector(allocations, labels) {
+  const fieldset = document.createElement('fieldset');
+  fieldset.className = 'event-booking__allocations';
+  const legend = document.createElement('legend');
+  legend.textContent = getLabel(
+    labels,
+    'EventAllocationHeading',
+    'Choose a space',
+  );
+  fieldset.append(legend);
+
+  const options = allocations.map((allocation, index) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'event-booking__allocation-option';
+    const input = document.createElement('input');
+    input.id = `event-allocation-${index}`;
+    input.name = 'event-allocation';
+    input.type = 'radio';
+    input.value = allocation.eventAllocationId;
+    input.disabled = allocation.availableQuantity < 1;
+
+    const label = document.createElement('label');
+    label.htmlFor = input.id;
+    const location = [allocation.space.name, allocation.zone?.name]
+      .filter(Boolean)
+      .join(' · ');
+    label.textContent = location;
+
+    const availability = createTextElement(
+      'span',
+      'event-booking__allocation-availability',
+      allocation.availableQuantity > 0
+        ? `${allocation.availableQuantity} ${getLabel(labels, 'EventAllocationAvailableLabel', 'available')}`
+        : getLabel(labels, 'EventAllocationUnavailableLabel', 'Unavailable'),
+    );
+    wrapper.append(input, label, availability);
+    return { allocation, input, wrapper };
+  });
+
+  const firstAvailable = options.find(
+    ({ allocation }) => allocation.availableQuantity > 0,
+  );
+  if (firstAvailable) firstAvailable.input.checked = true;
+  options.forEach(({ wrapper }) => fieldset.append(wrapper));
+  return { fieldset, options };
 }
 
 export function renderEventUnavailable(container, labels, message) {
@@ -313,6 +360,7 @@ export function renderEventBooking({
   inline = true,
   initialQuantity = 1,
   onClose,
+  onAllocationChange,
   onQuantityChange,
   onQuantityReset,
   onSuccess,
@@ -320,8 +368,12 @@ export function renderEventBooking({
   quantityElement,
 }) {
   let quantity = initialQuantity;
-  let participants = [];
+  let attendees = [];
   let pendingSubmission = null;
+  const allocations = Array.isArray(event.allocations) ? event.allocations : [];
+  let selectedAllocation = allocations.find(
+    (allocation) => allocation.availableQuantity > 0,
+  ) || null;
 
   const metadata = createMetadata(event, labels);
   const form = document.createElement('form');
@@ -380,9 +432,42 @@ export function renderEventBooking({
     contactEmail.wrapper,
   );
 
-  const participantsContainer = document.createElement('div');
-  participantsContainer.className = 'event-booking__participants';
-  participantsContainer.setAttribute('aria-live', 'polite');
+  const attendeesContainer = document.createElement('div');
+  attendeesContainer.className = 'event-booking__attendees';
+  attendeesContainer.setAttribute('aria-live', 'polite');
+
+  const allocationSelector = createAllocationSelector(allocations, labels);
+
+  const getQuantityLimit = () => Math.min(
+    MAXIMUM_DEMO_QUANTITY,
+    selectedAllocation?.availableQuantity || 0,
+  );
+
+  let updateSubmitDisabled = () => {};
+
+  const updateAllocationSelection = (allocation, resetQuantity = true) => {
+    selectedAllocation = allocation;
+    allocationSelector.options.forEach((option) => {
+      option.input.checked = option.allocation.eventAllocationId
+        === allocation?.eventAllocationId;
+    });
+    pendingSubmission = null;
+    if (resetQuantity) {
+      quantity = 0;
+      attendees = [];
+      renderAttendees(quantity);
+      onQuantityChange?.(quantity);
+      onQuantityReset?.();
+    }
+    updateSubmitDisabled();
+    onAllocationChange?.(selectedAllocation);
+  };
+
+  allocationSelector.options.forEach((option) => {
+    option.input.addEventListener('change', () => {
+      if (option.input.checked) updateAllocationSelection(option.allocation);
+    });
+  });
 
   const consentWrapper = document.createElement('div');
   consentWrapper.className = 'event-booking__consent';
@@ -418,12 +503,12 @@ export function renderEventBooking({
   );
   submit.append(createCartIcon(), submitLabel);
 
-  const setSubmitLabel = (label) => {
-    submitLabel.textContent = label;
+  updateSubmitDisabled = () => {
+    submit.disabled = quantity <= 0 || !selectedAllocation;
   };
 
-  const updateSubmitDisabled = () => {
-    submit.disabled = quantity <= 0;
+  const setSubmitLabel = (label) => {
+    submitLabel.textContent = label;
   };
 
   updateSubmitDisabled();
@@ -441,21 +526,21 @@ export function renderEventBooking({
     submit.setAttribute('form', form.id);
   }
 
-  function renderParticipants(nextQuantity) {
-    const previousValues = participants.map((participant) => participant.read());
-    participants = Array.from(
+  function renderAttendees(nextQuantity) {
+    const previousValues = attendees.map((attendee) => attendee.read());
+    attendees = Array.from(
       { length: nextQuantity },
-      (_, index) => createParticipantFields(index, labels),
+      (_, index) => createAttendeeFields(index, labels),
     );
-    participants.forEach((participant, index) => {
+    attendees.forEach((attendee, index) => {
       const previous = previousValues[index];
       if (previous) {
-        participant.firstName.input.value = previous.firstName;
-        participant.lastName.input.value = previous.lastName;
+        attendee.firstName.input.value = previous.firstName;
+        attendee.lastName.input.value = previous.lastName;
       }
     });
-    participantsContainer.replaceChildren(
-      ...participants.map((participant) => participant.element),
+    attendeesContainer.replaceChildren(
+      ...attendees.map((attendee) => attendee.element),
     );
   }
 
@@ -467,7 +552,7 @@ export function renderEventBooking({
         firstName: contactFirstName.input.value,
         lastName: contactLastName.input.value,
       },
-      participants: participants.map((participant) => participant.read()),
+      attendees: attendees.map((attendee) => attendee.read()),
       quantity,
     };
   }
@@ -477,9 +562,9 @@ export function renderEventBooking({
     setInputError(contactFirstName, '');
     setInputError(contactLastName, '');
     setInputError(contactEmail, '');
-    participants.forEach((participant) => {
-      setInputError(participant.firstName, '');
-      setInputError(participant.lastName, '');
+    attendees.forEach((attendee) => {
+      setInputError(attendee.firstName, '');
+      setInputError(attendee.lastName, '');
     });
     consentError.textContent = '';
     consent.setAttribute('aria-invalid', 'false');
@@ -506,16 +591,16 @@ export function renderEventBooking({
     setInputError(contactFirstName, errors.contactFirstName);
     setInputError(contactLastName, errors.contactLastName);
     setInputError(contactEmail, errors.contactEmail);
-    participants.forEach((participant, index) => {
+    attendees.forEach((attendee, index) => {
       setInputError(
-        participant.firstName,
-        errors[`participant-${index}-firstName`]
-          || errors[`participant-${index}`],
+        attendee.firstName,
+        errors[`attendee-${index}-firstName`]
+          || errors[`attendee-${index}`],
       );
       setInputError(
-        participant.lastName,
-        errors[`participant-${index}-lastName`]
-          || errors[`participant-${index}`],
+        attendee.lastName,
+        errors[`attendee-${index}-lastName`]
+          || errors[`attendee-${index}`],
       );
     });
     consentError.textContent = errors.consent || '';
@@ -529,15 +614,28 @@ export function renderEventBooking({
   function clearForm() {
     form.reset();
     quantity = initialQuantity;
-    renderParticipants(quantity);
+    selectedAllocation = allocations.find(
+      (allocation) => allocation.availableQuantity > 0,
+    ) || null;
+    allocationSelector.options.forEach((option) => {
+      option.input.checked = option.allocation.eventAllocationId
+        === selectedAllocation?.eventAllocationId;
+    });
+    attendees = [];
+    renderAttendees(quantity);
     updateSubmitDisabled();
     onQuantityChange?.(quantity);
     onQuantityReset?.();
+    onAllocationChange?.(selectedAllocation);
     pendingSubmission = null;
   }
 
   form.addEventListener('input', () => {
-    const currentSignature = JSON.stringify(readForm());
+    const currentSignature = JSON.stringify({
+      allocationId: selectedAllocation?.eventAllocationId || null,
+      commerceSku: selectedAllocation?.commerceSku || null,
+      form: readForm(),
+    });
     if (pendingSubmission?.signature !== currentSignature) {
       pendingSubmission = null;
     }
@@ -557,9 +655,21 @@ export function renderEventBooking({
       showErrors(validation.errors);
       return;
     }
+    if (!selectedAllocation || selectedAllocation.availableQuantity < 1) {
+      feedback.textContent = getLabel(
+        labels,
+        'EventAllocationUnavailableLabel',
+        'Select an available space to continue.',
+      );
+      return;
+    }
 
     const normalizedForm = normalizeBookingForm(rawForm);
-    const signature = JSON.stringify(normalizedForm);
+    const signature = JSON.stringify({
+      allocationId: selectedAllocation.eventAllocationId,
+      commerceSku: selectedAllocation.commerceSku,
+      form: normalizedForm,
+    });
     if (!pendingSubmission || pendingSubmission.signature !== signature) {
       pendingSubmission = {
         cartId: null,
@@ -581,6 +691,7 @@ export function renderEventBooking({
     let successMessage = null;
     try {
       const intentRef = await addToCart({
+        allocation: selectedAllocation,
         form: normalizedForm,
         pendingSubmission,
       });
@@ -618,8 +729,9 @@ export function renderEventBooking({
     }
   });
 
-  renderParticipants(quantity);
+  renderAttendees(quantity);
   const formChildren = [formHeading, feedback];
+  formChildren.push(allocationSelector.fieldset);
   if (quantityElement) {
     quantityElement.classList.add('event-booking__quantity');
     const quantityWrapper = document.createElement('div');
@@ -637,7 +749,7 @@ export function renderEventBooking({
   }
   formChildren.push(
     contact,
-    participantsContainer,
+    attendeesContainer,
   );
   form.append(...formChildren);
 
@@ -661,7 +773,7 @@ export function renderEventBooking({
   async function open() {
     if (modal?.block?.isConnected) {
       modal.showModal();
-      setTimeout(() => form.querySelector('input')?.focus(), 0);
+      setTimeout(() => form.querySelector('[name="contact-firstName"]')?.focus(), 0);
       return;
     }
 
@@ -674,7 +786,7 @@ export function renderEventBooking({
     modal.block.id = 'event-booking-modal';
     modal.block.classList.add('event-booking-modal');
     modal.showModal();
-    setTimeout(() => form.querySelector('input')?.focus(), 0);
+    setTimeout(() => form.querySelector('[name="contact-firstName"]')?.focus(), 0);
   }
 
   function close() {
@@ -685,20 +797,22 @@ export function renderEventBooking({
     open,
     close,
     setQuantity(nextQuantity) {
-      if (
-        !Number.isInteger(nextQuantity)
-        || nextQuantity < 0
-        || nextQuantity > MAXIMUM_DEMO_QUANTITY
-      ) {
-        feedback.textContent = `Choose between 1 and ${MAXIMUM_DEMO_QUANTITY} tickets.`;
+      const maximum = getQuantityLimit();
+      if (!Number.isInteger(nextQuantity) || nextQuantity < 0) {
+        feedback.textContent = `Choose between 1 and ${maximum || MAXIMUM_DEMO_QUANTITY} tickets.`;
         return;
       }
-      quantity = nextQuantity;
+      quantity = Math.min(nextQuantity, maximum);
       pendingSubmission = null;
-      renderParticipants(quantity);
+      renderAttendees(quantity);
       updateSubmitDisabled();
       onQuantityChange?.(quantity);
       feedback.textContent = '';
+    },
+    setAllocation(allocation) {
+      if (allocations.includes(allocation)) {
+        updateAllocationSelection(allocation);
+      }
     },
   });
 }

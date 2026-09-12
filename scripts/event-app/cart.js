@@ -89,6 +89,8 @@ function normalizeCartLines(data) {
     if (
       typeof item?.uid !== 'string'
       || typeof item?.product?.sku !== 'string'
+      || !Number.isInteger(item.quantity)
+      || item.quantity < 1
     ) {
       throw new EventAppError(
         EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
@@ -211,6 +213,7 @@ export async function addCorrelatedEventProduct({
   cartApi,
   commerceSku,
   createIntent,
+  eventAllocationId,
   eventId,
   form,
   pendingSubmission,
@@ -221,19 +224,16 @@ export async function addCorrelatedEventProduct({
     pendingSubmission.cartId = cart.id;
   }
 
-  const canonicalValues = {
-    ...values,
-    ...(values.parentSku
-      ? { parentSku: commerceSku || values.parentSku }
-      : { sku: commerceSku || values.sku }),
-  };
-  const sku = canonicalValues.parentSku || canonicalValues.sku;
-  if (!sku) {
+  const sku = typeof commerceSku === 'string' ? commerceSku.trim() : '';
+  if (!sku || typeof eventAllocationId !== 'string' || !eventAllocationId.trim()) {
     throw new EventAppError(
       EVENT_APP_ERROR_TYPES.INTEGRITY,
-      'Event SKU is unavailable',
+      'Event allocation is unavailable',
     );
   }
+
+  const { parentSku: _parentSku, ...productValues } = values || {};
+  const canonicalValues = { ...productValues, sku };
 
   let lines = await getEventCartLines(
     cartApi.fetchGraphQl,
@@ -241,30 +241,35 @@ export async function addCorrelatedEventProduct({
   );
   let cartLine = findEventCartLine(lines, sku);
   let { intentRef } = pendingSubmission;
+  const retryingCartLine = Boolean(pendingSubmission.cartItemUid);
 
   if (!intentRef) {
-    if (cartLine) {
+    if (cartLine && !cartLine.bookingIntentRef) {
       throw new EventAppError(
-        cartLine.bookingIntentRef
-          ? EVENT_APP_ERROR_TYPES.DUPLICATE
-          : EVENT_APP_ERROR_TYPES.INTEGRITY,
-        'The event already exists in this cart',
+        EVENT_APP_ERROR_TYPES.INTEGRITY,
+        'The event cart line is not correlated',
       );
     }
 
     const intent = await createIntent({
       commerce_cart_id: pendingSubmission.cartId,
-      commerce_sku: commerceSku || sku,
+      commerce_sku: sku,
       consent: form.consent,
       contact: form.contact,
+      event_allocation_id: eventAllocationId.trim(),
       event_id: eventId,
-      participants: form.participants,
+      attendees: form.attendees,
       quantity: form.quantity,
       source_request_id: pendingSubmission.sourceRequestId,
     });
     intentRef = intent.intentRef;
     pendingSubmission.intentRef = intentRef;
     pendingSubmission.stage = 'intent-created';
+    pendingSubmission.cartItemWasAdded = !cartLine;
+    pendingSubmission.cartItemUid = cartLine?.uid || null;
+    pendingSubmission.targetCartQuantity = cartLine
+      ? cartLine.quantity + form.quantity
+      : form.quantity;
   }
 
   try {
@@ -275,43 +280,82 @@ export async function addCorrelatedEventProduct({
       );
       cartLine = findEventCartLine(lines, sku);
 
-      if (cartLine?.bookingIntentRef) {
-        if (cartLine.bookingIntentRef !== intentRef) {
+      if (cartLine) {
+        if (cartLine.bookingIntentRef && cartLine.bookingIntentRef !== intentRef) {
           throw new EventAppError(
             EVENT_APP_ERROR_TYPES.DUPLICATE,
-            'A different booking already exists for this event',
+            'A different booking already exists for this event allocation',
           );
         }
-        pendingSubmission.stage = 'correlated';
-        return intentRef;
-      }
-
-      if (cartLine) {
         pendingSubmission.cartItemUid = cartLine.uid;
+        pendingSubmission.targetCartQuantity = pendingSubmission.targetCartQuantity
+          || cartLine.quantity;
         pendingSubmission.stage = 'cart-added';
       } else {
         const previousUids = lines.map((line) => line.uid);
         const cart = await cartApi.addProductsToCart([{
           ...canonicalValues,
-          quantity: form.quantity,
+          quantity: pendingSubmission.targetCartQuantity || form.quantity,
         }]);
         const addedItem = findNewCartItem(cart, previousUids, sku);
         pendingSubmission.cartItemUid = addedItem.uid;
+        pendingSubmission.cartItemWasAdded = true;
         pendingSubmission.stage = 'cart-added';
+        cartLine = {
+          bookingIntentRef: null,
+          quantity: pendingSubmission.targetCartQuantity || form.quantity,
+          sku,
+          uid: addedItem.uid,
+        };
       }
     }
 
-    await setCartItemBookingIntent(cartApi.fetchGraphQl, {
-      cartId: pendingSubmission.cartId,
-      cartItemUid: pendingSubmission.cartItemUid,
-      intentRef,
-    });
+    if (retryingCartLine) {
+      lines = await getEventCartLines(
+        cartApi.fetchGraphQl,
+        pendingSubmission.cartId,
+      );
+      cartLine = findEventCartLine(lines, sku);
+    }
+    if (!cartLine || cartLine.uid !== pendingSubmission.cartItemUid) {
+      throw new EventAppError(
+        EVENT_APP_ERROR_TYPES.INTEGRITY,
+        'The event cart line is unavailable',
+      );
+    }
+
+    const targetQuantity = pendingSubmission.targetCartQuantity || form.quantity;
+    if (cartLine.quantity < targetQuantity) {
+      await cartApi.updateProductsFromCart([{
+        quantity: targetQuantity,
+        uid: pendingSubmission.cartItemUid,
+      }]);
+    }
+
+    if (
+      cartLine.bookingIntentRef
+      && cartLine.bookingIntentRef !== intentRef
+    ) {
+      throw new EventAppError(
+        EVENT_APP_ERROR_TYPES.DUPLICATE,
+        'A different booking already exists for this event allocation',
+      );
+    }
+
+    if (cartLine.bookingIntentRef !== intentRef) {
+      await setCartItemBookingIntent(cartApi.fetchGraphQl, {
+        cartId: pendingSubmission.cartId,
+        cartItemUid: pendingSubmission.cartItemUid,
+        intentRef,
+      });
+    }
     pendingSubmission.stage = 'correlated';
     await cartApi.refreshCart();
     return intentRef;
   } catch (error) {
     if (
       pendingSubmission.cartItemUid
+      && pendingSubmission.cartItemWasAdded
       && error instanceof EventAppError
       && error.retryable !== true
     ) {
@@ -321,6 +365,8 @@ export async function addCorrelatedEventProduct({
           uid: pendingSubmission.cartItemUid,
         }]);
         pendingSubmission.cartItemUid = null;
+        pendingSubmission.cartItemWasAdded = false;
+        pendingSubmission.targetCartQuantity = null;
         pendingSubmission.stage = 'intent-created';
       } catch {
         // Keep the exact UID so a retry repairs instead of adding again.

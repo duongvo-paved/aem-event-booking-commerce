@@ -12,6 +12,7 @@ const EVENT_KEYS = Object.freeze([
   'tags',
   'timezone',
   'venue',
+  'allocations',
 ]);
 const BOOKING_KEYS = Object.freeze([
   'booking_ref',
@@ -76,20 +77,169 @@ function requireTimeZone(value) {
   return timeZone;
 }
 
+function normalizeVenueAddress(address) {
+  if (
+    !isPlainObject(address)
+    || !hasOnlyKeys(address, ['city', 'country_code', 'lines'])
+    || !Array.isArray(address.lines)
+    || address.lines.length === 0
+    || address.lines.some((line) => !isNonEmptyString(line))
+  ) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      'event.venue.address is invalid',
+    );
+  }
+
+  const lines = address.lines.map((line, index) => requireString(
+    line,
+    `event.venue.address.lines[${index}]`,
+  ));
+  const city = requireString(address.city, 'event.venue.address.city');
+  const countryCode = requireString(
+    address.country_code,
+    'event.venue.address.country_code',
+  );
+
+  return Object.freeze({
+    display: [...lines, city, countryCode].join(', '),
+    city,
+    countryCode,
+    lines: Object.freeze(lines),
+  });
+}
+
 function normalizeVenue(venue) {
   if (
     !isPlainObject(venue)
-    || !hasOnlyKeys(venue, ['address', 'name'])
+    || !hasOnlyKeys(venue, ['address', 'name', 'venue_id'])
   ) {
     throw new EventAppError(
       EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
       'event.venue is invalid',
     );
   }
+  const address = normalizeVenueAddress(venue.address);
   return Object.freeze({
-    address: requireString(venue.address, 'event.venue.address'),
+    address: address.display,
+    addressLines: address.lines,
+    city: address.city,
+    countryCode: address.countryCode,
+    id: requireString(venue.venue_id, 'event.venue.venue_id'),
     name: requireString(venue.name, 'event.venue.name'),
   });
+}
+
+function normalizeAllocationLocation(value, label, idKey) {
+  if (
+    !isPlainObject(value)
+    || !hasOnlyKeys(value, ['name', idKey])
+  ) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      `${label} is invalid`,
+    );
+  }
+
+  return Object.freeze({
+    id: requireString(
+      value[idKey],
+      `${label}.id`,
+    ),
+    name: requireString(value.name, `${label}.name`),
+  });
+}
+
+function requireNonNegativeInteger(value, label) {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      `${label} is invalid`,
+    );
+  }
+  return value;
+}
+
+function normalizeAllocations(allocations) {
+  if (!Array.isArray(allocations) || allocations.length === 0) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      'event.allocations is invalid',
+    );
+  }
+
+  const allocationIds = new Set();
+  const commerceSkus = new Set();
+  return Object.freeze(allocations.map((allocation, index) => {
+    if (
+      !isPlainObject(allocation)
+      || !hasOnlyKeys(allocation, [
+        'allocated_capacity',
+        'available_quantity',
+        'commerce_sku',
+        'event_allocation_id',
+        'space',
+        'zone',
+      ])
+    ) {
+      throw new EventAppError(
+        EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+        `event.allocations[${index}] is invalid`,
+      );
+    }
+
+    const eventAllocationId = requireString(
+      allocation.event_allocation_id,
+      `event.allocations[${index}].event_allocation_id`,
+    );
+    const commerceSku = requireString(
+      allocation.commerce_sku,
+      `event.allocations[${index}].commerce_sku`,
+    );
+    if (allocationIds.has(eventAllocationId) || commerceSkus.has(commerceSku)) {
+      throw new EventAppError(
+        EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+        'event.allocations contains duplicate identities',
+      );
+    }
+    allocationIds.add(eventAllocationId);
+    commerceSkus.add(commerceSku);
+
+    const allocatedCapacity = requireNonNegativeInteger(
+      allocation.allocated_capacity,
+      `event.allocations[${index}].allocated_capacity`,
+    );
+    const availableQuantity = requireNonNegativeInteger(
+      allocation.available_quantity,
+      `event.allocations[${index}].available_quantity`,
+    );
+    if (availableQuantity > allocatedCapacity) {
+      throw new EventAppError(
+        EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+        'event allocation availability is invalid',
+      );
+    }
+
+    const zone = allocation.zone === undefined || allocation.zone === null
+      ? null
+      : normalizeAllocationLocation(
+        allocation.zone,
+        `event.allocations[${index}].zone`,
+        'zone_id',
+      );
+    return Object.freeze({
+      allocatedCapacity,
+      availableQuantity,
+      commerceSku,
+      eventAllocationId,
+      space: normalizeAllocationLocation(
+        allocation.space,
+        `event.allocations[${index}].space`,
+        'space_id',
+      ),
+      zone,
+    });
+  }));
 }
 
 function normalizeCommerceAttributeCode(value) {
@@ -176,6 +326,7 @@ export function normalizePublicEvent(value, expectedEventId) {
     tags: Object.freeze(value.tags.map((tag) => tag.trim())),
     timezone: requireTimeZone(value.timezone),
     venue: normalizeVenue(value.venue),
+    allocations: normalizeAllocations(value.allocations),
   });
 }
 
