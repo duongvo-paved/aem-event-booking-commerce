@@ -192,22 +192,105 @@ const allocationReport = await evaluate(`(() => {
   };
 })()`);
 
+const duplicateReport = await evaluate(`({
+  callCount: window.__bookingTest.duplicateCalls.length,
+  emailRetained:
+    document.querySelector('[name="contact-email"]').value === 'ada@example.test',
+  feedback: document.querySelector('.event-booking__feedback').innerText.trim(),
+  linkHref: document.querySelector('.event-booking__feedback a')
+    ?.getAttribute('href'),
+  linkText: document.querySelector('.event-booking__feedback a')
+    ?.innerText.trim(),
+  liveMode: document.querySelector('.event-booking__feedback')
+    ?.getAttribute('aria-live'),
+  statusRole: document.querySelector('.event-booking__feedback')
+    ?.getAttribute('role'),
+})`);
+
+await evaluate(`(() => {
+  const {
+    event,
+    renderEventBooking,
+  } = window.__bookingTest;
+  const recurringEvent = {
+    ...event,
+    recurrence: {
+      dailyEndTime: '18:00',
+      dailyStartTime: '09:00',
+      endDate: '2026-08-15',
+      excludedDates: [],
+      sessionDurationMinutes: 120,
+      startDate: '2026-08-01',
+      weekdays: [6],
+    },
+    scheduleType: 'recurring',
+    allocations: [{
+      ...event.allocations[0],
+      occurrences: [{
+        availableQuantity: 4,
+        endTime: '12:00',
+        endsAtUtc: '2026-08-01T04:00:00.000Z',
+        localDate: '2026-08-01',
+        occurrenceId: 'occurrence-1',
+        startTime: '10:00',
+        startsAtUtc: '2026-08-01T02:00:00.000Z',
+        timezone: 'Australia/Sydney',
+      }, {
+        availableQuantity: 0,
+        endTime: '16:00',
+        endsAtUtc: '2026-08-01T08:00:00.000Z',
+        localDate: '2026-08-01',
+        occurrenceId: 'occurrence-2',
+        startTime: '14:00',
+        startsAtUtc: '2026-08-01T06:00:00.000Z',
+        timezone: 'Australia/Sydney',
+      }],
+    }],
+  };
+  window.__bookingTest.recurringCalls = [];
+  window.__bookingTest.recurringEvent = recurringEvent;
+  renderEventBooking({
+    addToCart: async ({ occurrence, pendingSubmission }) => {
+      window.__bookingTest.recurringCalls.push({
+        occurrenceId: occurrence?.occurrenceId,
+        sourceRequestId: pendingSubmission.sourceRequestId,
+      });
+      return 'recurring-intent-ref';
+    },
+    cartUrl: '/cart',
+    container: document.querySelector('.product-details__event-booking'),
+    event: recurringEvent,
+    initialQuantity: 1,
+    labels: {},
+  });
+})()`);
+await captureScreenshot('event-booking-saas-recurring-desktop');
+
+const recurringControls = await evaluate(`(() => ({
+  dateCount: document.querySelectorAll('[name="occurrence-date"] option').length,
+  selectedDate: document.querySelector('[name="occurrence-date"]')?.value,
+  selectedTime: document.querySelector('[name="occurrence-time"]')?.value,
+  timeOptions: [...document.querySelectorAll('[name="occurrence-time"] option')]
+    .map((option) => ({ disabled: option.disabled, value: option.value })),
+}))()`);
+
+await evaluate(`(() => {
+  window.__bookingTest.fill();
+  document.querySelector('.event-booking__form').requestSubmit();
+})()`);
+await waitFor('window.__bookingTest.recurringCalls.length === 1');
+
+const recurringReport = {
+  controls: recurringControls,
+  submittedOccurrenceId: await evaluate(
+    'window.__bookingTest.recurringCalls[0].occurrenceId',
+  ),
+};
+
 const report = {
   allocation: allocationReport,
-  duplicate: await evaluate(`({
-    callCount: window.__bookingTest.duplicateCalls.length,
-    emailRetained:
-      document.querySelector('[name="contact-email"]').value === 'ada@example.test',
-    feedback: document.querySelector('.event-booking__feedback').innerText.trim(),
-    linkHref: document.querySelector('.event-booking__feedback a')
-      ?.getAttribute('href'),
-    linkText: document.querySelector('.event-booking__feedback a')
-      ?.innerText.trim(),
-    liveMode: document.querySelector('.event-booking__feedback')
-      ?.getAttribute('aria-live'),
-    statusRole: document.querySelector('.event-booking__feedback')
-      ?.getAttribute('role'),
-  })`),
+  recurring: recurringReport,
+  duplicate: duplicateReport,
 };
 await captureScreenshot('event-booking-saas-duplicate-desktop');
 
@@ -476,6 +559,18 @@ assert.deepEqual(report.allocation, {
   count: 2,
   selected: 1,
   unavailable: 1,
+});
+assert.deepEqual(report.recurring, {
+  controls: {
+    dateCount: 1,
+    selectedDate: '2026-08-01',
+    selectedTime: 'occurrence-1',
+    timeOptions: [
+      { disabled: false, value: 'occurrence-1' },
+      { disabled: true, value: 'occurrence-2' },
+    ],
+  },
+  submittedOccurrenceId: 'occurrence-1',
 });
 assert.equal(report.retryFailure.emailRetained, true);
 assert.match(report.retryFailure.feedback, /temporarily unavailable/i);

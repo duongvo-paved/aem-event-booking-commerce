@@ -117,6 +117,14 @@ export function createEventAppClient(config = getEventAppConfig()) {
       return normalizePublicEvent(response?.event, externalEventId);
     },
 
+    async getAvailability(externalEventId, { from, to } = {}) {
+      const payload = { external_event_id: externalEventId };
+      if (from) payload.from = from;
+      if (to) payload.to = to;
+      const response = await request(config, 'availability', payload);
+      return normalizePublicEvent(response?.event, externalEventId);
+    },
+
     async getPublicBooking(bookingRef) {
       const response = await request(config, 'ticket-get', {
         booking_ref: bookingRef,

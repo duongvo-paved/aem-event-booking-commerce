@@ -4,6 +4,13 @@ import {
 } from './errors.js';
 
 export const BOOKING_INTENT_ATTRIBUTE = 'booking_intent_ref';
+export const EVENT_OCCURRENCE_ATTRIBUTES = Object.freeze({
+  date: 'event_occurrence_date',
+  endTime: 'event_occurrence_end_time',
+  id: 'event_occurrence_id',
+  startTime: 'event_occurrence_start_time',
+  timezone: 'event_occurrence_timezone',
+});
 
 const EVENT_CART_LINES_QUERY = `
   query EventCartLines($cartId: String!) {
@@ -58,6 +65,65 @@ const SET_BOOKING_INTENT_MUTATION = `
   }
 `;
 
+const SET_BOOKING_INTENT_OCCURRENCE_MUTATION = `
+  mutation SetBookingIntentWithOccurrence(
+    $cartId: String!
+    $cartItemId: String!
+    $intentRef: String!
+    $occurrenceId: String!
+    $occurrenceDate: String!
+    $occurrenceStartTime: String!
+    $occurrenceEndTime: String!
+    $occurrenceTimezone: String!
+  ) {
+    setCustomAttributesOnCartItem(
+      input: {
+        cart_id: $cartId
+        cart_item_id: $cartItemId
+        custom_attributes: [
+          {
+            attribute_code: "booking_intent_ref"
+            value: $intentRef
+          }
+          {
+            attribute_code: "event_occurrence_id"
+            value: $occurrenceId
+          }
+          {
+            attribute_code: "event_occurrence_date"
+            value: $occurrenceDate
+          }
+          {
+            attribute_code: "event_occurrence_start_time"
+            value: $occurrenceStartTime
+          }
+          {
+            attribute_code: "event_occurrence_end_time"
+            value: $occurrenceEndTime
+          }
+          {
+            attribute_code: "event_occurrence_timezone"
+            value: $occurrenceTimezone
+          }
+        ]
+      }
+    ) {
+      cart {
+        id
+        itemsV2(pageSize: 100, currentPage: 1) {
+          items {
+            uid
+            custom_attributes {
+              attribute_code
+              value
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
 function getGraphQlErrorMessage(errors) {
   if (!Array.isArray(errors)) return '';
   return errors
@@ -74,6 +140,93 @@ function readBookingIntent(attributes) {
   return typeof attribute?.value === 'string' && attribute.value.trim()
     ? attribute.value.trim()
     : null;
+}
+
+function readCartAttribute(attributes, attributeCode) {
+  if (!Array.isArray(attributes)) return null;
+  const attribute = attributes.find(
+    (entry) => entry?.attribute_code === attributeCode,
+  );
+  return typeof attribute?.value === 'string' && attribute.value.trim()
+    ? attribute.value.trim()
+    : null;
+}
+
+function isLocalTime(value) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+function isCalendarDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime())
+    && date.toISOString().slice(0, 10) === value;
+}
+
+function timeToMinutes(value) {
+  const [hours, minutes] = value.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+export function readOccurrenceSnapshot(attributes) {
+  const snapshot = {
+    occurrenceId: readCartAttribute(attributes, EVENT_OCCURRENCE_ATTRIBUTES.id),
+    localDate: readCartAttribute(attributes, EVENT_OCCURRENCE_ATTRIBUTES.date),
+    startTime: readCartAttribute(attributes, EVENT_OCCURRENCE_ATTRIBUTES.startTime),
+    endTime: readCartAttribute(attributes, EVENT_OCCURRENCE_ATTRIBUTES.endTime),
+    timezone: readCartAttribute(attributes, EVENT_OCCURRENCE_ATTRIBUTES.timezone),
+  };
+  if (
+    !snapshot.occurrenceId
+    || !snapshot.localDate
+    || !isCalendarDate(snapshot.localDate)
+    || !snapshot.startTime
+    || !isLocalTime(snapshot.startTime)
+    || !snapshot.endTime
+    || !isLocalTime(snapshot.endTime)
+    || timeToMinutes(snapshot.endTime) <= timeToMinutes(snapshot.startTime)
+    || !snapshot.timezone
+  ) return null;
+  return Object.freeze(snapshot);
+}
+
+function normalizeOccurrenceSnapshot(occurrence, expectedOccurrenceId) {
+  if (!occurrence || typeof occurrence !== 'object') return null;
+  const snapshot = {
+    occurrenceId: typeof occurrence.occurrenceId === 'string'
+      ? occurrence.occurrenceId.trim()
+      : '',
+    localDate: typeof occurrence.localDate === 'string'
+      ? occurrence.localDate.trim()
+      : '',
+    startTime: typeof occurrence.startTime === 'string'
+      ? occurrence.startTime.trim()
+      : '',
+    endTime: typeof occurrence.endTime === 'string'
+      ? occurrence.endTime.trim()
+      : '',
+    timezone: typeof occurrence.timezone === 'string'
+      ? occurrence.timezone.trim()
+      : '',
+  };
+  if (expectedOccurrenceId !== undefined
+    && snapshot.occurrenceId !== expectedOccurrenceId.trim()) return null;
+  const attributes = Object.entries({
+    [EVENT_OCCURRENCE_ATTRIBUTES.id]: snapshot.occurrenceId,
+    [EVENT_OCCURRENCE_ATTRIBUTES.date]: snapshot.localDate,
+    [EVENT_OCCURRENCE_ATTRIBUTES.startTime]: snapshot.startTime,
+    [EVENT_OCCURRENCE_ATTRIBUTES.endTime]: snapshot.endTime,
+    [EVENT_OCCURRENCE_ATTRIBUTES.timezone]: snapshot.timezone,
+  }).map(([attributeCode, value]) => ({
+    attribute_code: attributeCode,
+    value,
+  }));
+  return readOccurrenceSnapshot(attributes);
+}
+
+function sameOccurrenceSnapshot(left, right) {
+  return Boolean(left && right)
+    && Object.keys(left).every((key) => left[key] === right[key]);
 }
 
 function normalizeCartLines(data) {
@@ -99,6 +252,7 @@ function normalizeCartLines(data) {
     }
     return Object.freeze({
       bookingIntentRef: readBookingIntent(item.custom_attributes),
+      occurrence: readOccurrenceSnapshot(item.custom_attributes),
       quantity: item.quantity,
       sku: item.product.sku,
       uid: item.uid,
@@ -171,15 +325,40 @@ export function findNewCartItem(cart, previousUids, sku) {
 
 export async function setCartItemBookingIntent(
   fetchGraphQl,
-  { cartId, cartItemUid, intentRef },
+  {
+    cartId,
+    cartItemUid,
+    intentRef,
+    occurrence,
+  },
 ) {
+  const occurrenceSnapshot = occurrence === undefined || occurrence === null
+    ? null
+    : normalizeOccurrenceSnapshot(occurrence);
+  if (occurrence !== undefined && occurrence !== null && !occurrenceSnapshot) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INTEGRITY,
+      'Event occurrence is unavailable',
+    );
+  }
   try {
-    const { data, errors } = await fetchGraphQl(SET_BOOKING_INTENT_MUTATION, {
-      variables: {
+    const mutation = occurrenceSnapshot
+      ? SET_BOOKING_INTENT_OCCURRENCE_MUTATION
+      : SET_BOOKING_INTENT_MUTATION;
+    const variables = occurrenceSnapshot
+      ? {
         cartId,
         cartItemId: cartItemUid,
         intentRef,
-      },
+        occurrenceId: occurrenceSnapshot.occurrenceId,
+        occurrenceDate: occurrenceSnapshot.localDate,
+        occurrenceStartTime: occurrenceSnapshot.startTime,
+        occurrenceEndTime: occurrenceSnapshot.endTime,
+        occurrenceTimezone: occurrenceSnapshot.timezone,
+      }
+      : { cartId, cartItemId: cartItemUid, intentRef };
+    const { data, errors } = await fetchGraphQl(mutation, {
+      variables,
     });
     const errorMessage = getGraphQlErrorMessage(errors);
     if (errorMessage) {
@@ -193,7 +372,14 @@ export async function setCartItemBookingIntent(
     const updatedItem = Array.isArray(items)
       ? items.find((item) => item?.uid === cartItemUid)
       : null;
-    if (readBookingIntent(updatedItem?.custom_attributes) !== intentRef) {
+    if (
+      readBookingIntent(updatedItem?.custom_attributes) !== intentRef
+      || (occurrenceSnapshot
+        && !sameOccurrenceSnapshot(
+          readOccurrenceSnapshot(updatedItem?.custom_attributes),
+          occurrenceSnapshot,
+        ))
+    ) {
       throw new EventAppError(
         EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
         'Commerce did not preserve the booking reference',
@@ -216,6 +402,8 @@ export async function addCorrelatedEventProduct({
   eventAllocationId,
   eventId,
   form,
+  occurrence,
+  occurrenceId,
   pendingSubmission,
   values,
 }) {
@@ -231,6 +419,31 @@ export async function addCorrelatedEventProduct({
       'Event allocation is unavailable',
     );
   }
+  if (
+    occurrenceId !== undefined
+    && (typeof occurrenceId !== 'string' || !occurrenceId.trim())
+  ) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INTEGRITY,
+      'Event occurrence is unavailable',
+    );
+  }
+  const occurrenceSnapshot = occurrence === undefined || occurrence === null
+    ? null
+    : normalizeOccurrenceSnapshot(occurrence, occurrenceId);
+  if (occurrence !== undefined && occurrence !== null && !occurrenceSnapshot) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INTEGRITY,
+      'Event occurrence is unavailable',
+    );
+  }
+  if (occurrenceId && !occurrenceSnapshot) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INTEGRITY,
+      'Event occurrence details are unavailable',
+    );
+  }
+  const selectedOccurrenceId = occurrenceSnapshot?.occurrenceId;
 
   const { parentSku: _parentSku, ...productValues } = values || {};
   const canonicalValues = { ...productValues, sku };
@@ -250,6 +463,12 @@ export async function addCorrelatedEventProduct({
         'The event cart line is not correlated',
       );
     }
+    if (selectedOccurrenceId && cartLine) {
+      throw new EventAppError(
+        EVENT_APP_ERROR_TYPES.INTEGRITY,
+        'The recurring occurrence cannot be matched to the existing cart line',
+      );
+    }
 
     const intent = await createIntent({
       commerce_cart_id: pendingSubmission.cartId,
@@ -261,6 +480,7 @@ export async function addCorrelatedEventProduct({
       attendees: form.attendees,
       quantity: form.quantity,
       source_request_id: pendingSubmission.sourceRequestId,
+      ...(selectedOccurrenceId ? { occurrence_id: selectedOccurrenceId } : {}),
     });
     intentRef = intent.intentRef;
     pendingSubmission.intentRef = intentRef;
@@ -303,6 +523,7 @@ export async function addCorrelatedEventProduct({
         pendingSubmission.stage = 'cart-added';
         cartLine = {
           bookingIntentRef: null,
+          occurrence: occurrenceSnapshot,
           quantity: pendingSubmission.targetCartQuantity || form.quantity,
           sku,
           uid: addedItem.uid,
@@ -342,11 +563,29 @@ export async function addCorrelatedEventProduct({
       );
     }
 
-    if (cartLine.bookingIntentRef !== intentRef) {
+    if (
+      occurrenceSnapshot
+      && cartLine.occurrence
+      && !sameOccurrenceSnapshot(cartLine.occurrence, occurrenceSnapshot)
+    ) {
+      throw new EventAppError(
+        EVENT_APP_ERROR_TYPES.INTEGRITY,
+        'The Commerce cart line belongs to a different occurrence',
+      );
+    }
+
+    if (
+      cartLine.bookingIntentRef !== intentRef
+      || (occurrenceSnapshot
+        && cartLine.occurrence
+        && !sameOccurrenceSnapshot(cartLine.occurrence, occurrenceSnapshot))
+      || (occurrenceSnapshot && !cartLine.occurrence)
+    ) {
       await setCartItemBookingIntent(cartApi.fetchGraphQl, {
         cartId: pendingSubmission.cartId,
         cartItemUid: pendingSubmission.cartItemUid,
         intentRef,
+        occurrence: occurrenceSnapshot,
       });
     }
     pendingSubmission.stage = 'correlated';

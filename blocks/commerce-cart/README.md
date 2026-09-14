@@ -86,3 +86,6 @@ The presenter uses English fallbacks when these global placeholders are absent:
 - `EventVenueLabel`
 - `EventOrganizerLabel`
 - `EventQuantityLabel`
+- `EventSelectedDateLabel`
+- `EventSelectedDateUnavailable`
+- `EventScheduleLabel`

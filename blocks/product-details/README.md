@@ -10,7 +10,10 @@ submission with an event-booking experience. The event experience loads allowlis
 metadata and allocation data using `external_event_id`, collects one attendee per
 ticket, displays a live pre-cart ticket summary, creates or merges a booking intent,
 adds the selected virtual child product, and then applies `booking_intent_ref` using
-the SaaS `setCustomAttributesOnCartItem` mutation.
+the SaaS `setCustomAttributesOnCartItem` mutation. Recurring bookings also store
+the selected occurrence's local date, time range, timezone, and stable ID as
+non-sensitive cart-item display attributes so cart and mini-cart can show the
+actual selected session after refresh.
 
 ## Integration
 
@@ -73,31 +76,43 @@ No events are emitted by this block. -->
    allocation; unavailable allocations are disabled.
 5. Quantity is bounded by the selected allocation availability and the 20-ticket
    contract limit.
-6. A stable `source_request_id` is reused for a logical retry.
-7. The create-intent request includes the selected child `commerce_sku`,
+6. Recurring events load bounded occurrence availability and require a date,
+   start time, and stable `occurrence_id`; one-time events retain the existing
+   date/time metadata behavior.
+7. A stable `source_request_id` is reused for a logical retry.
+8. The create-intent request includes the selected child `commerce_sku`,
    `event_allocation_id`, and canonical `attendees`. A different request for the
-   same active cart/event/child-SKU/allocation is merged by Integration.
-8. The matching child cart line is increased by the submitted quantity. A
+   same active cart/event/child-SKU/allocation/occurrence is merged by Integration.
+9. The matching child cart line is increased by the submitted quantity. A
    successful intent and exact cart item UID are retained in memory after a
    recoverable failure, so retry repairs the cart without replaying the merge.
-9. Event products do not use PDP cart-update mode; cart attendee editing remains
+
+Recurring additions fail closed when the selected child SKU already has a cart
+line and the storefront cannot prove that line belongs to the selected
+occurrence. Commerce currently exposes only the booking-intent correlation on
+the cart line; an approved occurrence cart-item identity is required before
+different occurrences can safely share one cart. Cart and mini-cart panels show
+the exact persisted recurring occurrence when available. Older recurring lines
+without that snapshot show the recurring date range, daily availability hours,
+and session duration instead of guessing a selected session.
+10. Event products do not use PDP cart-update mode; cart attendee editing remains
    gated on the separate replacement-intent contract.
-10. Event details remain visible and the booking form is rendered in a native accordion
+11. Event details remain visible and the booking form is rendered in a native accordion
    below them. The accordion is expanded by default and moves between desktop/mobile
    event-detail mounts without duplicating form state.
-11. The event-only quantity selector is rendered inside the booking form, starts at
+12. The event-only quantity selector is rendered inside the booking form, starts at
     zero, is labeled “Number of attendees,” uses a compact right-aligned width, and keeps the incrementer border around
     all controls. Its value controls attendee count and the live ticket summary; Add
     to Cart remains disabled until at least one ticket is selected.
-12. The event summary is a collapsible, expanded-by-default pre-cart preview showing
+13. The event summary is a collapsible, expanded-by-default pre-cart preview showing
     ticket count, unit price, and total. It appears below the product description at
     every responsive breakpoint.
-13. Consent and Add to Cart render below the Summary while remaining associated with
+14. Consent and Add to Cart render below the Summary while remaining associated with
    the accordion form; the cart action includes the default cart icon and keeps the
    wishlist action beside it. Successful bookings close the accordion and render the
    localized success message below Summary, reset the PDP quantity to zero, and keep
    the message until dismissed.
-14. Event galleries use full-width, uncropped media with dot navigation on desktop;
+15. Event galleries use full-width, uncropped media with dot navigation on desktop;
     standard product galleries retain desktop thumbnail navigation.
 
 ### Error Handling

@@ -8,6 +8,8 @@ const EVENT_KEYS = Object.freeze([
   'ends_at_utc',
   'event_id',
   'organizer',
+  'recurrence',
+  'schedule_type',
   'starts_at_utc',
   'tags',
   'timezone',
@@ -25,6 +27,10 @@ const TICKET_KEYS = Object.freeze([
   'status',
   'ticket_ref',
 ]);
+
+const ISO_WEEKDAYS = new Set([1, 2, 3, 4, 5, 6, 7]);
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -62,6 +68,50 @@ function requireIsoDate(value, label) {
     );
   }
   return normalized;
+}
+
+function requireCalendarDate(value, label) {
+  const normalized = requireString(value, label);
+  if (!DATE_PATTERN.test(normalized)) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      `${label} is invalid`,
+    );
+  }
+  const [year, month, day] = normalized.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year
+    || date.getUTCMonth() !== month - 1
+    || date.getUTCDate() !== day
+  ) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      `${label} is invalid`,
+    );
+  }
+  return normalized;
+}
+
+function requireLocalTime(value, label) {
+  const normalized = requireString(value, label);
+  if (!TIME_PATTERN.test(normalized)) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      `${label} is invalid`,
+    );
+  }
+  return normalized;
+}
+
+function timeToMinutes(value) {
+  return Number(value.slice(0, 2)) * 60 + Number(value.slice(3));
+}
+
+function getIsoWeekday(value) {
+  const [year, month, day] = value.split('-').map(Number);
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  return weekday === 0 ? 7 : weekday;
 }
 
 function requireTimeZone(value) {
@@ -150,6 +200,162 @@ function normalizeAllocationLocation(value, label, idKey) {
   });
 }
 
+function normalizeRecurrence(value) {
+  if (
+    !isPlainObject(value)
+    || !hasOnlyKeys(value, [
+      'daily_end_time',
+      'daily_start_time',
+      'end_date',
+      'excluded_dates',
+      'session_duration_minutes',
+      'start_date',
+      'weekdays',
+    ])
+  ) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      'event.recurrence is invalid',
+    );
+  }
+
+  const startDate = requireCalendarDate(value.start_date, 'event.recurrence.start_date');
+  const endDate = requireCalendarDate(value.end_date, 'event.recurrence.end_date');
+  if (startDate > endDate) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      'event.recurrence date range is invalid',
+    );
+  }
+
+  if (
+    !Array.isArray(value.weekdays)
+    || value.weekdays.length === 0
+    || value.weekdays.some((weekday) => (
+      !Number.isInteger(weekday) || !ISO_WEEKDAYS.has(weekday)
+    ))
+    || new Set(value.weekdays).size !== value.weekdays.length
+  ) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      'event.recurrence.weekdays is invalid',
+    );
+  }
+
+  const dailyStartTime = requireLocalTime(
+    value.daily_start_time,
+    'event.recurrence.daily_start_time',
+  );
+  const dailyEndTime = requireLocalTime(
+    value.daily_end_time,
+    'event.recurrence.daily_end_time',
+  );
+  if (timeToMinutes(dailyEndTime) <= timeToMinutes(dailyStartTime)) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      'event.recurrence daily hours are invalid',
+    );
+  }
+  if (
+    !Number.isInteger(value.session_duration_minutes)
+    || value.session_duration_minutes < 1
+    || value.session_duration_minutes > (
+      timeToMinutes(dailyEndTime) - timeToMinutes(dailyStartTime)
+    )
+  ) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      'event.recurrence.session_duration_minutes is invalid',
+    );
+  }
+
+  if (
+    !Array.isArray(value.excluded_dates)
+    || new Set(value.excluded_dates).size !== value.excluded_dates.length
+  ) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      'event.recurrence.excluded_dates is invalid',
+    );
+  }
+  const excludedDates = value.excluded_dates.map((date, index) => {
+    const normalized = requireCalendarDate(
+      date,
+      `event.recurrence.excluded_dates[${index}]`,
+    );
+    if (normalized < startDate || normalized > endDate) {
+      throw new EventAppError(
+        EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+        'event.recurrence.excluded_dates is invalid',
+      );
+    }
+    return normalized;
+  });
+
+  return Object.freeze({
+    dailyEndTime,
+    dailyStartTime,
+    endDate,
+    excludedDates: Object.freeze(excludedDates),
+    sessionDurationMinutes: value.session_duration_minutes,
+    startDate,
+    weekdays: Object.freeze([...value.weekdays]),
+  });
+}
+
+function normalizeOccurrence(value, label) {
+  if (
+    !isPlainObject(value)
+    || !hasOnlyKeys(value, [
+      'available_quantity',
+      'end_time',
+      'ends_at_utc',
+      'local_date',
+      'occurrence_id',
+      'start_time',
+      'starts_at_utc',
+      'timezone',
+    ])
+  ) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      `${label} is invalid`,
+    );
+  }
+
+  const availableQuantity = requireNonNegativeInteger(
+    value.available_quantity,
+    `${label}.available_quantity`,
+  );
+  const startsAtUtc = requireIsoDate(value.starts_at_utc, `${label}.starts_at_utc`);
+  const endsAtUtc = requireIsoDate(value.ends_at_utc, `${label}.ends_at_utc`);
+  const startTime = requireLocalTime(value.start_time, `${label}.start_time`);
+  const endTime = requireLocalTime(value.end_time, `${label}.end_time`);
+  if (Date.parse(startsAtUtc) >= Date.parse(endsAtUtc)) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      `${label} interval is invalid`,
+    );
+  }
+  if (timeToMinutes(startTime) >= timeToMinutes(endTime)) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      `${label} local interval is invalid`,
+    );
+  }
+
+  return Object.freeze({
+    availableQuantity,
+    endTime,
+    endsAtUtc,
+    localDate: requireCalendarDate(value.local_date, `${label}.local_date`),
+    occurrenceId: requireString(value.occurrence_id, `${label}.occurrence_id`),
+    startTime,
+    startsAtUtc,
+    timezone: requireTimeZone(value.timezone),
+  });
+}
+
 function requireNonNegativeInteger(value, label) {
   if (!Number.isInteger(value) || value < 0) {
     throw new EventAppError(
@@ -178,6 +384,7 @@ function normalizeAllocations(allocations) {
         'available_quantity',
         'commerce_sku',
         'event_allocation_id',
+        'occurrences',
         'space',
         'zone',
       ])
@@ -220,6 +427,29 @@ function normalizeAllocations(allocations) {
       );
     }
 
+    let occurrences;
+    if (allocation.occurrences !== undefined) {
+      if (!Array.isArray(allocation.occurrences)) {
+        throw new EventAppError(
+          EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+          `event.allocations[${index}].occurrences is invalid`,
+        );
+      }
+      occurrences = Object.freeze(allocation.occurrences.map((occurrence, occurrenceIndex) => (
+        normalizeOccurrence(
+          occurrence,
+          `event.allocations[${index}].occurrences[${occurrenceIndex}]`,
+        )
+      )));
+      const occurrenceIds = new Set(occurrences.map((occurrence) => occurrence.occurrenceId));
+      if (occurrenceIds.size !== occurrences.length) {
+        throw new EventAppError(
+          EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+          `event.allocations[${index}].occurrences contains duplicate identities`,
+        );
+      }
+    }
+
     const zone = allocation.zone === undefined || allocation.zone === null
       ? null
       : normalizeAllocationLocation(
@@ -238,6 +468,7 @@ function normalizeAllocations(allocations) {
         'space_id',
       ),
       zone,
+      ...(occurrences ? { occurrences } : {}),
     });
   }));
 }
@@ -317,16 +548,64 @@ export function normalizePublicEvent(value, expectedEventId) {
     );
   }
 
+  const scheduleType = value.schedule_type === undefined
+    ? 'one_time'
+    : requireString(value.schedule_type, 'event.schedule_type');
+  if (!['one_time', 'recurring'].includes(scheduleType)) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      'event.schedule_type is invalid',
+    );
+  }
+  const recurrence = value.recurrence === undefined
+    ? null
+    : normalizeRecurrence(value.recurrence);
+  if (scheduleType === 'recurring' && !recurrence) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      'event.recurrence is missing',
+    );
+  }
+
+  const timezone = requireTimeZone(value.timezone);
+  const allocations = normalizeAllocations(value.allocations);
+  allocations.forEach((allocation) => {
+    allocation.occurrences?.forEach((occurrence) => {
+      if (scheduleType !== 'recurring') {
+        throw new EventAppError(
+          EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+          'One-time events cannot contain occurrences',
+        );
+      }
+      if (
+        occurrence.timezone !== timezone
+        || occurrence.localDate < recurrence.startDate
+        || occurrence.localDate > recurrence.endDate
+        || recurrence.excludedDates.includes(occurrence.localDate)
+        || !recurrence.weekdays.includes(getIsoWeekday(occurrence.localDate))
+        || timeToMinutes(occurrence.startTime) < timeToMinutes(recurrence.dailyStartTime)
+        || timeToMinutes(occurrence.endTime) > timeToMinutes(recurrence.dailyEndTime)
+      ) {
+        throw new EventAppError(
+          EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+          'Event occurrence does not match the recurring schedule',
+        );
+      }
+    });
+  });
+
   return Object.freeze({
     ageRequirement: optionalString(value.age_requirement, 'event.age_requirement'),
     endsAtUtc: requireIsoDate(value.ends_at_utc, 'event.ends_at_utc'),
     eventId,
     organizer: optionalString(value.organizer, 'event.organizer'),
+    recurrence,
+    scheduleType,
     startsAtUtc: requireIsoDate(value.starts_at_utc, 'event.starts_at_utc'),
     tags: Object.freeze(value.tags.map((tag) => tag.trim())),
-    timezone: requireTimeZone(value.timezone),
+    timezone,
     venue: normalizeVenue(value.venue),
-    allocations: normalizeAllocations(value.allocations),
+    allocations,
   });
 }
 

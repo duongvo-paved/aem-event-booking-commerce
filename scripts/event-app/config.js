@@ -8,13 +8,14 @@ import {
 const ACTION_NAMES = Object.freeze([
   'enrich',
   'detail',
+  'availability',
   'create-intent',
   'cancel-intent',
   'ticket-get',
 ]);
 const ALLOWED_ENCODINGS = new Set(['json-body', 'query']);
 const ALLOWED_METHODS = new Set(['GET', 'POST']);
-const DEFAULT_TIMEOUT = 8000;
+const DEFAULT_TIMEOUT = 30000;
 
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);

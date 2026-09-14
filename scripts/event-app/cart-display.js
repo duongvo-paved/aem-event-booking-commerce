@@ -1,4 +1,5 @@
 import { formatEventDateRange } from './dates.js';
+import { readOccurrenceSnapshot } from './cart.js';
 import {
   getExternalEventId,
   isEventProduct,
@@ -16,11 +17,17 @@ const FALLBACK_LABELS = Object.freeze({
     'Please contact support and provide your order number so we can check your booking.',
   confirmationMessage:
     'Your tickets are being prepared. A link to access them will be emailed to the address used for this order.',
+  availableDates: 'Available dates',
   date: 'Date and time',
+  duration: 'Session duration',
   heading: 'Booking information',
   linked: 'Booking linked',
   organizer: 'Organizer',
+  selectedDate: 'Selected date',
+  selectedDateUnavailable: 'Not available for this cart item',
+  schedule: 'Schedule',
   tickets: 'Tickets',
+  time: 'Time',
   unavailable: 'Booking information temporarily unavailable',
   venue: 'Venue',
 });
@@ -52,7 +59,17 @@ export function getCartBookingLabels(placeholders) {
       'OrderConfirmationEventBookingMessage',
       FALLBACK_LABELS.confirmationMessage,
     ),
+    availableDates: getLabel(
+      placeholders,
+      'EventAvailableDatesLabel',
+      FALLBACK_LABELS.availableDates,
+    ),
     date: getLabel(placeholders, 'EventDateLabel', FALLBACK_LABELS.date),
+    duration: getLabel(
+      placeholders,
+      'EventSessionDurationLabel',
+      FALLBACK_LABELS.duration,
+    ),
     heading: getLabel(
       placeholders,
       'CartEventBookingHeading',
@@ -68,11 +85,27 @@ export function getCartBookingLabels(placeholders) {
       'EventOrganizerLabel',
       FALLBACK_LABELS.organizer,
     ),
+    selectedDate: getLabel(
+      placeholders,
+      'EventSelectedDateLabel',
+      FALLBACK_LABELS.selectedDate,
+    ),
+    selectedDateUnavailable: getLabel(
+      placeholders,
+      'EventSelectedDateUnavailable',
+      FALLBACK_LABELS.selectedDateUnavailable,
+    ),
+    schedule: getLabel(
+      placeholders,
+      'EventScheduleLabel',
+      FALLBACK_LABELS.schedule,
+    ),
     tickets: getLabel(
       placeholders,
       'EventQuantityLabel',
       FALLBACK_LABELS.tickets,
     ),
+    time: getLabel(placeholders, 'EventTimeLabel', FALLBACK_LABELS.time),
     unavailable: getLabel(
       placeholders,
       'CartEventBookingUnavailable',
@@ -97,7 +130,7 @@ export function getCartItemSignature(cartData) {
     .join('|');
 }
 
-function createSummary(item, correlationStatus, event) {
+function createSummary(item, correlationStatus, event, line) {
   const summary = {
     cartItemUid: item.uid,
     correlationStatus,
@@ -105,6 +138,8 @@ function createSummary(item, correlationStatus, event) {
     sku: item.sku,
   };
   if (event) summary.event = event;
+  const occurrence = line?.occurrence || readOccurrenceSnapshot(line?.custom_attributes);
+  if (event && occurrence) summary.occurrence = occurrence;
   return Object.freeze(summary);
 }
 
@@ -163,7 +198,7 @@ export async function loadCartBookingSummaries({
     if (!line?.bookingIntentRef) return createSummary(item, 'missing');
 
     const eventId = getExternalEventId({ attributes: item.productAttributes });
-    return createSummary(item, 'linked', eventsById.get(eventId));
+    return createSummary(item, 'linked', eventsById.get(eventId), line);
   }));
 }
 
@@ -216,6 +251,97 @@ export function createCheckoutBookingSnapshot({
   });
 }
 
+function isValidOccurrenceSnapshot(occurrence) {
+  return Boolean(
+    occurrence
+    && typeof occurrence.occurrenceId === 'string'
+    && occurrence.occurrenceId.trim()
+    && typeof occurrence.localDate === 'string'
+    && /^\d{4}-\d{2}-\d{2}$/.test(occurrence.localDate)
+    && typeof occurrence.startTime === 'string'
+    && /^([01]\d|2[0-3]):[0-5]\d$/.test(occurrence.startTime)
+    && typeof occurrence.endTime === 'string'
+    && /^([01]\d|2[0-3]):[0-5]\d$/.test(occurrence.endTime)
+    && typeof occurrence.timezone === 'string'
+    && occurrence.timezone.trim(),
+  );
+}
+
+function formatCalendarDate(date, locale) {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+    year: 'numeric',
+  }).format(parsed);
+}
+
+function formatCalendarDateRange(startDate, endDate, locale) {
+  const start = new Date(`${startDate}T00:00:00.000Z`);
+  const end = new Date(`${endDate}T00:00:00.000Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return `${startDate} – ${endDate}`;
+  }
+  const formatter = new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+    year: 'numeric',
+  });
+  if (typeof formatter.formatRange === 'function') {
+    return formatter.formatRange(start, end);
+  }
+  return `${formatter.format(start)} – ${formatter.format(end)}`;
+}
+
+function formatLocalTimeRange(startTime, endTime, timezone) {
+  return `${startTime} – ${endTime} (${timezone})`;
+}
+
+function getScheduleRows(event, occurrence, labels, locale) {
+  if (event.scheduleType !== 'recurring') {
+    return [[labels.date, formatEventDateRange(event, locale)]];
+  }
+
+  if (isValidOccurrenceSnapshot(occurrence)) {
+    return [
+      [labels.selectedDate, formatCalendarDate(occurrence.localDate, locale)],
+      [
+        labels.time,
+        formatLocalTimeRange(
+          occurrence.startTime,
+          occurrence.endTime,
+          occurrence.timezone,
+        ),
+      ],
+    ];
+  }
+
+  if (!event.recurrence) return [[labels.date, formatEventDateRange(event, locale)]];
+  return [
+    [labels.selectedDate, labels.selectedDateUnavailable],
+    [
+      labels.schedule,
+      formatCalendarDateRange(
+        event.recurrence.startDate,
+        event.recurrence.endDate,
+        locale,
+      ),
+    ],
+    [
+      labels.time,
+      formatLocalTimeRange(
+        event.recurrence.dailyStartTime,
+        event.recurrence.dailyEndTime,
+        event.timezone,
+      ),
+    ],
+    [labels.duration, `${event.recurrence.sessionDurationMinutes} minutes`],
+  ];
+}
+
 export function getCartBookingPanelModel(
   summary,
   {
@@ -238,7 +364,12 @@ export function getCartBookingPanelModel(
       ? labels.confirmationMessage
       : labels.linked;
     if (summary.event) {
-      rows.push([labels.date, formatEventDateRange(summary.event, locale)]);
+      rows.push(...getScheduleRows(
+        summary.event,
+        summary.occurrence,
+        labels,
+        locale,
+      ));
       rows.push([labels.venue, summary.event.venue.name]);
       if (surface !== 'mini-cart' && summary.event.organizer) {
         rows.push([labels.organizer, summary.event.organizer]);

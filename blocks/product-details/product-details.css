@@ -283,6 +283,56 @@
   letter-spacing: var(--type-body-2-default-letter-spacing);
 }
 
+.block.product-details .event-booking-accordion .event-booking__occurrences,
+.event-booking-modal .event-booking__occurrences {
+  border: var(--shape-border-width-1) solid var(--color-neutral-400);
+  border-radius: var(--shape-border-radius-1);
+  display: grid;
+  gap: var(--spacing-small);
+  margin: 0;
+  padding: var(--spacing-small);
+}
+
+.block.product-details .event-booking-accordion .event-booking__occurrences legend,
+.event-booking-modal .event-booking__occurrences legend {
+  font: var(--type-body-1-strong-font);
+  letter-spacing: var(--type-body-1-strong-letter-spacing);
+  padding: 0;
+}
+
+.block.product-details .event-booking-accordion .event-booking__occurrence-field,
+.event-booking-modal .event-booking__occurrence-field {
+  display: grid;
+  gap: var(--spacing-xxsmall);
+}
+
+.block.product-details .event-booking-accordion .event-booking__occurrence-field select,
+.event-booking-modal .event-booking__occurrence-field select {
+  background: var(--color-neutral-50);
+  border: var(--shape-border-width-1) solid var(--color-neutral-500);
+  border-radius: var(--shape-border-radius-1);
+  box-sizing: border-box;
+  font: inherit;
+  min-height: 3rem;
+  min-width: 0;
+  padding-inline: var(--spacing-xsmall);
+  width: 100%;
+}
+
+.block.product-details .event-booking-accordion .event-booking__occurrence-field select:focus-visible,
+.event-booking-modal .event-booking__occurrence-field select:focus-visible {
+  outline: var(--shape-border-width-3) solid var(--color-brand-500);
+  outline-offset: var(--shape-border-width-2);
+}
+
+.block.product-details .event-booking-accordion .event-booking__occurrence-availability,
+.event-booking-modal .event-booking__occurrence-availability {
+  color: var(--color-neutral-600);
+  font: var(--type-body-2-default-font);
+  letter-spacing: var(--type-body-2-default-letter-spacing);
+  margin: 0;
+}
+
 .block.product-details .event-booking-accordion .event-booking__field {
   align-content: start;
   display: grid;

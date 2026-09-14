@@ -38,6 +38,34 @@ const publicEvent = {
   }],
 };
 
+const recurringEvent = {
+  ...publicEvent,
+  ends_at_utc: '2026-08-15T04:00:00.000Z',
+  schedule_type: 'recurring',
+  recurrence: {
+    daily_end_time: '18:00',
+    daily_start_time: '09:00',
+    end_date: '2026-08-15',
+    excluded_dates: ['2026-08-08'],
+    session_duration_minutes: 120,
+    start_date: '2026-08-01',
+    weekdays: [1, 3, 5, 6],
+  },
+  allocations: [{
+    ...publicEvent.allocations[0],
+    occurrences: [{
+      available_quantity: 4,
+      end_time: '12:00',
+      ends_at_utc: '2026-08-01T04:00:00.000Z',
+      local_date: '2026-08-01',
+      occurrence_id: 'occurrence-1',
+      start_time: '10:00',
+      starts_at_utc: '2026-08-01T02:00:00.000Z',
+      timezone: 'Australia/Sydney',
+    }],
+  }],
+};
+
 test('reads event identifiers from supported Commerce attribute shapes', () => {
   const product = {
     attributes: [
@@ -106,6 +134,31 @@ test('normalizes a strict public event and keyed enrichment map', () => {
   assert.deepEqual([...events.keys()], ['event-1']);
 });
 
+test('normalizes recurring schedule metadata and occurrence availability', () => {
+  const event = normalizePublicEvent(recurringEvent, 'event-1');
+
+  assert.equal(event.scheduleType, 'recurring');
+  assert.deepEqual(event.recurrence, {
+    dailyEndTime: '18:00',
+    dailyStartTime: '09:00',
+    endDate: '2026-08-15',
+    excludedDates: ['2026-08-08'],
+    sessionDurationMinutes: 120,
+    startDate: '2026-08-01',
+    weekdays: [1, 3, 5, 6],
+  });
+  assert.deepEqual(event.allocations[0].occurrences, [{
+    availableQuantity: 4,
+    endTime: '12:00',
+    endsAtUtc: '2026-08-01T04:00:00.000Z',
+    localDate: '2026-08-01',
+    occurrenceId: 'occurrence-1',
+    startTime: '10:00',
+    startsAtUtc: '2026-08-01T02:00:00.000Z',
+    timezone: 'Australia/Sydney',
+  }]);
+});
+
 test('allows the public event organizer to be omitted', () => {
   const { organizer, ...eventWithoutOrganizer } = publicEvent;
   const event = normalizePublicEvent(eventWithoutOrganizer, 'event-1');
@@ -141,6 +194,33 @@ test('rejects unexpected event and intent response fields', () => {
     intent_ref: 'intent',
     internal_id: 'forbidden',
     status: 'awaiting_order',
+  }));
+  assert.throws(() => normalizePublicEvent({
+    ...recurringEvent,
+    recurrence: {
+      ...recurringEvent.recurrence,
+      excluded_dates: ['2026-08-16'],
+    },
+  }));
+  assert.throws(() => normalizePublicEvent({
+    ...recurringEvent,
+    allocations: [{
+      ...recurringEvent.allocations[0],
+      occurrences: [
+        recurringEvent.allocations[0].occurrences[0],
+        recurringEvent.allocations[0].occurrences[0],
+      ],
+    }],
+  }));
+  assert.throws(() => normalizePublicEvent({
+    ...recurringEvent,
+    allocations: [{
+      ...recurringEvent.allocations[0],
+      occurrences: [{
+        ...recurringEvent.allocations[0].occurrences[0],
+        timezone: 'UTC',
+      }],
+    }],
   }));
 });
 

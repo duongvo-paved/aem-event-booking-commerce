@@ -11,7 +11,7 @@ or Runtime manifests without contract approval.
 {
   "event-app": {
     "enabled": true,
-    "timeout-ms": 8000,
+    "timeout-ms": 30000,
     "allowed-qr-origins": [
       "https://approved-ticket-runtime.example"
     ],
@@ -23,6 +23,11 @@ or Runtime manifests without contract approval.
       },
       "detail": {
         "url": "https://approved-runtime.example/approved-detail-path",
+        "method": "GET",
+        "encoding": "query"
+      },
+      "availability": {
+        "url": "https://approved-runtime.example/approved-availability-path",
         "method": "GET",
         "encoding": "query"
       },
@@ -62,7 +67,8 @@ configuration must remain disabled until:
    approved HTTPS `qr_render_url` values.
 
 The approved `create-intent` contract must include `commerce_cart_id`, `event_id`,
-`commerce_sku`, and `event_allocation_id` for grouped events. Integration must
+`commerce_sku`, and `event_allocation_id` for grouped events. Recurring bookings
+also require the selected `occurrence_id`. Integration must
 enforce one active intent for that identity:
 
 - the same `source_request_id` returns the original intent with HTTP `200`;

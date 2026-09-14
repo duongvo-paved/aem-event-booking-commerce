@@ -389,7 +389,10 @@ export default async function decorate(block) {
       $eventActions.replaceChildren();
     } else {
       try {
-        const event = await eventClient.getEvent(externalEventId);
+        let event = await eventClient.getEvent(externalEventId);
+        if (event.scheduleType === 'recurring') {
+          event = await eventClient.getAvailability(externalEventId);
+        }
         pdpApi.setProductConfigurationValues((previous) => ({
           ...(previous || {}),
           quantity: 0,
@@ -434,6 +437,14 @@ export default async function decorate(block) {
               sku: allocation?.commerceSku || product.sku,
             }));
           },
+          onOccurrenceChange: (occurrence) => {
+            pdpApi.setProductConfigurationValues((previous) => ({
+              ...(previous || {}),
+              quantity: 0,
+              sku: selectedAllocation?.commerceSku || product.sku,
+              occurrenceId: occurrence?.occurrenceId || null,
+            }));
+          },
           onQuantityChange: (quantity) => eventSummary?.setQuantity(quantity),
           onQuantityReset: () => {
             pdpApi.setProductConfigurationValues((previous) => {
@@ -454,7 +465,12 @@ export default async function decorate(block) {
               console.error('Failed to render booking success alert:', error);
             });
           },
-          addToCart: async ({ allocation, form, pendingSubmission }) => {
+          addToCart: async ({
+            allocation,
+            form,
+            occurrence,
+            pendingSubmission,
+          }) => {
             if (!allocation) {
               throw new EventAppError(
                 EVENT_APP_ERROR_TYPES.REQUEST,
@@ -469,6 +485,8 @@ export default async function decorate(block) {
               eventAllocationId: allocation.eventAllocationId,
               eventId: event.eventId,
               form,
+              occurrence,
+              occurrenceId: occurrence?.occurrenceId,
               pendingSubmission,
               // The event form validates booking details and selects the
               // virtual child. Parent PDP option state must not be sent with

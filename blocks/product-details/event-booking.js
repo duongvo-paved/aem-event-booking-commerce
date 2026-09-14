@@ -102,8 +102,14 @@ function createMetadata(event, labels) {
   heading.id = 'event-details-heading';
 
   const list = document.createElement('dl');
+  const eventDateLabel = event.scheduleType === 'recurring'
+    ? getLabel(labels, 'EventAvailableDatesLabel', 'Available dates')
+    : getLabel(labels, 'EventDateLabel', 'Date and time');
+  const eventDateValue = event.scheduleType === 'recurring' && event.recurrence
+    ? `${formatLocalDate(event.recurrence.startDate, event.timezone)} – ${formatLocalDate(event.recurrence.endDate, event.timezone)}`
+    : formatEventDateRange(event);
   const rows = [
-    [getLabel(labels, 'EventDateLabel', 'Date and time'), formatEventDateRange(event)],
+    [eventDateLabel, eventDateValue],
     [getLabel(labels, 'EventVenueLabel', 'Venue'), event.venue.name],
     [getLabel(labels, 'EventAddressLabel', 'Address'), event.venue.address],
   ];
@@ -135,6 +141,161 @@ function createMetadata(event, labels) {
 
   section.append(heading, list);
   return section;
+}
+
+function formatLocalDate(value, timezone) {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Intl.DateTimeFormat(
+    document.documentElement.lang || 'en-US',
+    {
+      day: 'numeric',
+      month: 'short',
+      timeZone: timezone,
+      weekday: 'short',
+      year: 'numeric',
+    },
+  ).format(new Date(Date.UTC(year, month - 1, day, 12)));
+}
+
+function createOccurrenceSelector(event, getAllocation, labels) {
+  if (event.scheduleType !== 'recurring') return null;
+
+  const fieldset = document.createElement('fieldset');
+  fieldset.className = 'event-booking__occurrences';
+  const legend = document.createElement('legend');
+  legend.textContent = getLabel(
+    labels,
+    'EventOccurrenceHeading',
+    'Choose a date and time',
+  );
+
+  const dateWrapper = document.createElement('div');
+  dateWrapper.className = 'event-booking__occurrence-field';
+  const dateLabel = document.createElement('label');
+  dateLabel.htmlFor = 'event-occurrence-date';
+  dateLabel.textContent = getLabel(labels, 'EventOccurrenceDateLabel', 'Date');
+  const dateSelect = document.createElement('select');
+  dateSelect.id = 'event-occurrence-date';
+  dateSelect.name = 'occurrence-date';
+  dateSelect.required = true;
+  dateWrapper.append(dateLabel, dateSelect);
+
+  const timeWrapper = document.createElement('div');
+  timeWrapper.className = 'event-booking__occurrence-field';
+  const timeLabel = document.createElement('label');
+  timeLabel.htmlFor = 'event-occurrence-time';
+  timeLabel.textContent = getLabel(labels, 'EventOccurrenceTimeLabel', 'Start time');
+  const timeSelect = document.createElement('select');
+  timeSelect.id = 'event-occurrence-time';
+  timeSelect.name = 'occurrence-time';
+  timeSelect.required = true;
+  timeWrapper.append(timeLabel, timeSelect);
+
+  const availability = createTextElement(
+    'p',
+    'event-booking__occurrence-availability',
+    '',
+  );
+  availability.setAttribute('aria-live', 'polite');
+  fieldset.append(legend, dateWrapper, timeWrapper, availability);
+
+  let selectedOccurrence = null;
+  let changeHandler = () => {};
+
+  function getOccurrences() {
+    return getAllocation()?.occurrences || [];
+  }
+
+  function renderAvailability() {
+    if (!selectedOccurrence) {
+      availability.textContent = getLabel(
+        labels,
+        'EventOccurrenceUnavailableLabel',
+        'No available time is selected.',
+      );
+      return;
+    }
+    const quantity = selectedOccurrence.availableQuantity;
+    availability.textContent = quantity > 0
+      ? `${quantity} ${getLabel(labels, 'EventAllocationAvailableLabel', 'available')}`
+      : getLabel(labels, 'EventAllocationUnavailableLabel', 'Unavailable');
+  }
+
+  function renderTimes(preferredOccurrenceId) {
+    const occurrences = getOccurrences().filter(
+      (occurrence) => occurrence.localDate === dateSelect.value,
+    );
+    timeSelect.replaceChildren();
+    occurrences.forEach((occurrence) => {
+      const option = document.createElement('option');
+      option.value = occurrence.occurrenceId;
+      option.textContent = `${occurrence.startTime} – ${occurrence.endTime}`;
+      option.disabled = occurrence.availableQuantity < 1;
+      timeSelect.append(option);
+    });
+
+    const preferred = occurrences.find(
+      (occurrence) => occurrence.occurrenceId === preferredOccurrenceId
+        && occurrence.availableQuantity > 0,
+    );
+    const firstAvailable = occurrences.find(
+      (occurrence) => occurrence.availableQuantity > 0,
+    );
+    selectedOccurrence = preferred || firstAvailable || occurrences[0] || null;
+    timeSelect.value = selectedOccurrence?.occurrenceId || '';
+    renderAvailability();
+  }
+
+  function renderDates(preferredDate) {
+    const occurrences = getOccurrences();
+    const dates = [...new Set(occurrences.map((occurrence) => occurrence.localDate))];
+    dateSelect.replaceChildren();
+    dates.forEach((date) => {
+      const option = document.createElement('option');
+      option.value = date;
+      option.textContent = formatLocalDate(date, event.timezone);
+      option.disabled = !occurrences.some(
+        (occurrence) => occurrence.localDate === date
+          && occurrence.availableQuantity > 0,
+      );
+      dateSelect.append(option);
+    });
+
+    const preferredOption = dates.includes(preferredDate)
+      && !dateSelect.querySelector(`option[value="${preferredDate}"]:disabled`)
+      ? preferredDate
+      : dates.find((date) => occurrences.some(
+        (occurrence) => occurrence.localDate === date
+          && occurrence.availableQuantity > 0,
+      )) || dates[0] || '';
+    dateSelect.value = preferredOption;
+    renderTimes(selectedOccurrence?.occurrenceId);
+  }
+
+  dateSelect.addEventListener('change', () => {
+    const previous = selectedOccurrence?.occurrenceId;
+    renderTimes(previous);
+    changeHandler(selectedOccurrence);
+  });
+  timeSelect.addEventListener('change', () => {
+    selectedOccurrence = getOccurrences().find(
+      (occurrence) => occurrence.occurrenceId === timeSelect.value,
+    ) || null;
+    renderAvailability();
+    changeHandler(selectedOccurrence);
+  });
+
+  renderDates();
+  return Object.freeze({
+    fieldset,
+    getSelected: () => selectedOccurrence,
+    onChange(handler) {
+      changeHandler = typeof handler === 'function' ? handler : () => {};
+    },
+    refresh() {
+      renderDates(selectedOccurrence?.localDate);
+    },
+  });
 }
 
 function createAttendeeFields(index, labels) {
@@ -189,7 +350,7 @@ function createAllocationSelector(allocations, labels) {
     input.name = 'event-allocation';
     input.type = 'radio';
     input.value = allocation.eventAllocationId;
-    input.disabled = allocation.availableQuantity < 1;
+    input.disabled = !hasAvailableAllocation(allocation);
 
     const label = document.createElement('label');
     label.htmlFor = input.id;
@@ -210,11 +371,18 @@ function createAllocationSelector(allocations, labels) {
   });
 
   const firstAvailable = options.find(
-    ({ allocation }) => allocation.availableQuantity > 0,
+    ({ allocation }) => hasAvailableAllocation(allocation),
   );
   if (firstAvailable) firstAvailable.input.checked = true;
   options.forEach(({ wrapper }) => fieldset.append(wrapper));
   return { fieldset, options };
+}
+
+function hasAvailableAllocation(allocation) {
+  return Boolean(
+    allocation?.availableQuantity > 0
+      || allocation?.occurrences?.some((occurrence) => occurrence.availableQuantity > 0),
+  );
 }
 
 export function renderEventUnavailable(container, labels, message) {
@@ -361,6 +529,7 @@ export function renderEventBooking({
   initialQuantity = 1,
   onClose,
   onAllocationChange,
+  onOccurrenceChange,
   onQuantityChange,
   onQuantityReset,
   onSuccess,
@@ -372,8 +541,14 @@ export function renderEventBooking({
   let pendingSubmission = null;
   const allocations = Array.isArray(event.allocations) ? event.allocations : [];
   let selectedAllocation = allocations.find(
-    (allocation) => allocation.availableQuantity > 0,
+    (allocation) => hasAvailableAllocation(allocation),
   ) || null;
+  const occurrenceSelector = createOccurrenceSelector(
+    event,
+    () => selectedAllocation,
+    labels,
+  );
+  let selectedOccurrence = occurrenceSelector?.getSelected() || null;
 
   const metadata = createMetadata(event, labels);
   const form = document.createElement('form');
@@ -440,13 +615,17 @@ export function renderEventBooking({
 
   const getQuantityLimit = () => Math.min(
     MAXIMUM_DEMO_QUANTITY,
-    selectedAllocation?.availableQuantity || 0,
+    event.scheduleType === 'recurring'
+      ? selectedOccurrence?.availableQuantity || 0
+      : selectedAllocation?.availableQuantity || 0,
   );
 
   let updateSubmitDisabled = () => {};
 
   const updateAllocationSelection = (allocation, resetQuantity = true) => {
     selectedAllocation = allocation;
+    occurrenceSelector?.refresh();
+    selectedOccurrence = occurrenceSelector?.getSelected() || null;
     allocationSelector.options.forEach((option) => {
       option.input.checked = option.allocation.eventAllocationId
         === allocation?.eventAllocationId;
@@ -461,7 +640,20 @@ export function renderEventBooking({
     }
     updateSubmitDisabled();
     onAllocationChange?.(selectedAllocation);
+    onOccurrenceChange?.(selectedOccurrence);
   };
+
+  occurrenceSelector?.onChange((occurrence) => {
+    selectedOccurrence = occurrence;
+    pendingSubmission = null;
+    quantity = 0;
+    attendees = [];
+    renderAttendees(quantity);
+    updateSubmitDisabled();
+    onQuantityChange?.(quantity);
+    onQuantityReset?.();
+    onOccurrenceChange?.(selectedOccurrence);
+  });
 
   allocationSelector.options.forEach((option) => {
     option.input.addEventListener('change', () => {
@@ -504,7 +696,9 @@ export function renderEventBooking({
   submit.append(createCartIcon(), submitLabel);
 
   updateSubmitDisabled = () => {
-    submit.disabled = quantity <= 0 || !selectedAllocation;
+    submit.disabled = quantity <= 0
+      || !selectedAllocation
+      || (event.scheduleType === 'recurring' && !selectedOccurrence);
   };
 
   const setSubmitLabel = (label) => {
@@ -615,8 +809,10 @@ export function renderEventBooking({
     form.reset();
     quantity = initialQuantity;
     selectedAllocation = allocations.find(
-      (allocation) => allocation.availableQuantity > 0,
+      (allocation) => hasAvailableAllocation(allocation),
     ) || null;
+    occurrenceSelector?.refresh();
+    selectedOccurrence = occurrenceSelector?.getSelected() || null;
     allocationSelector.options.forEach((option) => {
       option.input.checked = option.allocation.eventAllocationId
         === selectedAllocation?.eventAllocationId;
@@ -627,6 +823,7 @@ export function renderEventBooking({
     onQuantityChange?.(quantity);
     onQuantityReset?.();
     onAllocationChange?.(selectedAllocation);
+    onOccurrenceChange?.(selectedOccurrence);
     pendingSubmission = null;
   }
 
@@ -634,6 +831,7 @@ export function renderEventBooking({
     const currentSignature = JSON.stringify({
       allocationId: selectedAllocation?.eventAllocationId || null,
       commerceSku: selectedAllocation?.commerceSku || null,
+      occurrenceId: selectedOccurrence?.occurrenceId || null,
       form: readForm(),
     });
     if (pendingSubmission?.signature !== currentSignature) {
@@ -655,11 +853,21 @@ export function renderEventBooking({
       showErrors(validation.errors);
       return;
     }
-    if (!selectedAllocation || selectedAllocation.availableQuantity < 1) {
+    if (!hasAvailableAllocation(selectedAllocation)) {
       feedback.textContent = getLabel(
         labels,
         'EventAllocationUnavailableLabel',
         'Select an available space to continue.',
+      );
+      return;
+    }
+    if (event.scheduleType === 'recurring' && (
+      !selectedOccurrence || selectedOccurrence.availableQuantity < 1
+    )) {
+      feedback.textContent = getLabel(
+        labels,
+        'EventOccurrenceUnavailableLabel',
+        'Select an available date and time to continue.',
       );
       return;
     }
@@ -668,6 +876,7 @@ export function renderEventBooking({
     const signature = JSON.stringify({
       allocationId: selectedAllocation.eventAllocationId,
       commerceSku: selectedAllocation.commerceSku,
+      occurrenceId: selectedOccurrence?.occurrenceId || null,
       form: normalizedForm,
     });
     if (!pendingSubmission || pendingSubmission.signature !== signature) {
@@ -693,6 +902,7 @@ export function renderEventBooking({
       const intentRef = await addToCart({
         allocation: selectedAllocation,
         form: normalizedForm,
+        occurrence: selectedOccurrence,
         pendingSubmission,
       });
       pendingSubmission.intentRef = intentRef;
@@ -732,6 +942,7 @@ export function renderEventBooking({
   renderAttendees(quantity);
   const formChildren = [formHeading, feedback];
   formChildren.push(allocationSelector.fieldset);
+  if (occurrenceSelector) formChildren.push(occurrenceSelector.fieldset);
   if (quantityElement) {
     quantityElement.classList.add('event-booking__quantity');
     const quantityWrapper = document.createElement('div');

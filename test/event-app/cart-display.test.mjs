@@ -24,6 +24,28 @@ const event = Object.freeze({
   venue: { name: 'City Hall' },
 });
 
+const recurringEvent = Object.freeze({
+  ...event,
+  eventId: 'recurring-event',
+  scheduleType: 'recurring',
+  recurrence: {
+    dailyEndTime: '18:00',
+    dailyStartTime: '09:00',
+    endDate: '2026-08-31',
+    sessionDurationMinutes: 90,
+    startDate: '2026-08-01',
+  },
+  timezone: 'Australia/Sydney',
+});
+
+const occurrence = Object.freeze({
+  occurrenceId: 'occurrence-1',
+  localDate: '2026-08-08',
+  startTime: '10:00',
+  endTime: '11:30',
+  timezone: 'Australia/Sydney',
+});
+
 function attributes(eventId = 'event-1') {
   return [
     {
@@ -47,8 +69,13 @@ function cartData(items) {
   return { id: 'cart-id', items };
 }
 
-function linkedLine(uid, intentRef = 'opaque-intent-ref') {
-  return { bookingIntentRef: intentRef, quantity: 1, uid };
+function linkedLine(uid, intentRef = 'opaque-intent-ref', selectedOccurrence) {
+  return {
+    bookingIntentRef: intentRef,
+    ...(selectedOccurrence ? { occurrence: selectedOccurrence } : {}),
+    quantity: 1,
+    uid,
+  };
 }
 
 function deferred() {
@@ -157,6 +184,17 @@ test('deduplicates event IDs into one batch enrichment request', async () => {
   assert.equal(summaries[1].event.eventId, 'same-event');
 });
 
+test('preserves the selected recurring occurrence in linked cart summaries', async () => {
+  const summaries = await loadCartBookingSummaries({
+    cartData: cartData([cartItem('recurring-line', 1, 'recurring-event')]),
+    enrichEvents: async () => new Map([['recurring-event', recurringEvent]]),
+    fetchCartLines: async () => [linkedLine('recurring-line', 'opaque-intent-ref', occurrence)],
+  });
+
+  assert.deepEqual(summaries[0].occurrence, occurrence);
+  assert.doesNotMatch(JSON.stringify(summaries), /opaque-intent-ref/);
+});
+
 test('distinguishes failed correlation from failed optional enrichment', async () => {
   const unavailable = await loadCartBookingSummaries({
     cartData: cartData([cartItem('one', 3)]),
@@ -218,6 +256,56 @@ test('builds cart, mini-cart, and confirmation panel models', () => {
   assert.deepEqual(full.rows.at(-1), ['Tickets', '2']);
   assert.deepEqual(compact.rows.at(-1), ['Tickets', '2']);
   assert.match(confirmation.message, /emailed to the address used for this order/);
+});
+
+test('shows the selected date and time for recurring cart items', () => {
+  const summary = {
+    cartItemUid: 'recurring-line',
+    correlationStatus: 'linked',
+    event: recurringEvent,
+    occurrence,
+    quantity: 1,
+  };
+
+  const cartPanel = getCartBookingPanelModel(summary, {
+    labels,
+    locale: 'en-AU',
+    surface: 'cart',
+  });
+  const miniCartPanel = getCartBookingPanelModel(summary, {
+    labels,
+    locale: 'en-AU',
+    surface: 'mini-cart',
+  });
+
+  assert.deepEqual(cartPanel.rows.slice(0, 3), [
+    ['Selected date', '8 Aug 2026'],
+    ['Time', '10:00 – 11:30 (Australia/Sydney)'],
+    ['Venue', 'City Hall'],
+  ]);
+  assert.deepEqual(miniCartPanel.rows.slice(0, 2), [
+    ['Selected date', '8 Aug 2026'],
+    ['Time', '10:00 – 11:30 (Australia/Sydney)'],
+  ]);
+});
+
+test('falls back to recurring schedule details for legacy cart lines', () => {
+  const panel = getCartBookingPanelModel({
+    cartItemUid: 'legacy-recurring-line',
+    correlationStatus: 'linked',
+    event: recurringEvent,
+    quantity: 1,
+  }, {
+    labels,
+    locale: 'en-AU',
+    surface: 'cart',
+  });
+
+  assert.deepEqual(panel.rows.slice(0, 3), [
+    ['Selected date', 'Not available for this cart item'],
+    ['Schedule', '1–31 Aug 2026'],
+    ['Time', '09:00 – 18:00 (Australia/Sydney)'],
+  ]);
 });
 
 test('omits organizer rows when event enrichment has no organizer', () => {

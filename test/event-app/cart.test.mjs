@@ -56,7 +56,22 @@ function cartLine({
   };
 }
 
-function setAttributeResponse(intentRef = 'intent-ref', uid = 'line-uid') {
+function setAttributeResponse(intentRef = 'intent-ref', uid = 'line-uid', occurrence) {
+  const customAttributes = [
+    {
+      attribute_code: 'booking_intent_ref',
+      value: intentRef,
+    },
+  ];
+  if (occurrence) {
+    customAttributes.push(
+      { attribute_code: 'event_occurrence_id', value: occurrence.occurrenceId },
+      { attribute_code: 'event_occurrence_date', value: occurrence.localDate },
+      { attribute_code: 'event_occurrence_start_time', value: occurrence.startTime },
+      { attribute_code: 'event_occurrence_end_time', value: occurrence.endTime },
+      { attribute_code: 'event_occurrence_timezone', value: occurrence.timezone },
+    );
+  }
   return {
     data: {
       setCustomAttributesOnCartItem: {
@@ -64,10 +79,7 @@ function setAttributeResponse(intentRef = 'intent-ref', uid = 'line-uid') {
           id: 'cart-id',
           itemsV2: {
             items: [{
-              custom_attributes: [{
-                attribute_code: 'booking_intent_ref',
-                value: intentRef,
-              }],
+              custom_attributes: customAttributes,
               uid,
             }],
           },
@@ -115,6 +127,7 @@ test('creates one intent, adds one item, and correlates it through SaaS GraphQL'
       assert.equal(payload.commerce_cart_id, 'cart-id');
       assert.equal(payload.commerce_sku, 'event-sku');
       assert.equal(payload.event_allocation_id, 'allocation-1');
+      assert.equal(payload.occurrence_id, undefined);
       assert.deepEqual(payload.attendees, form.attendees);
       assert.equal(payload.source_request_id, 'source-request');
       return { intentRef: 'intent-ref' };
@@ -135,6 +148,83 @@ test('creates one intent, adds one item, and correlates it through SaaS GraphQL'
   });
   assert.equal(pendingSubmission.stage, 'correlated');
   assert.equal(pendingSubmission.cartItemUid, 'line-uid');
+});
+
+test('includes the selected recurring occurrence in the intent payload', async () => {
+  let intentPayload;
+  const occurrence = {
+    occurrenceId: 'occurrence-1',
+    localDate: '2026-08-01',
+    startTime: '10:00',
+    endTime: '12:00',
+    timezone: 'Australia/Sydney',
+  };
+  const cartApi = {
+    addProductsToCart: async () => ({
+      items: [{ sku: 'event-sku', topLevelSku: 'event-sku', uid: 'line-uid' }],
+    }),
+    fetchGraphQl: async (query) => query.includes('SetBookingIntent')
+      ? setAttributeResponse('intent-ref', 'line-uid', occurrence)
+      : cartLinesResponse(),
+    initializeCart: async () => ({ id: 'cart-id', items: [] }),
+    refreshCart: async () => null,
+    updateProductsFromCart: async () => null,
+  };
+
+  await addCorrelatedEventProduct({
+    cartApi,
+    commerceSku: 'event-sku',
+    createIntent: async (payload) => {
+      intentPayload = payload;
+      return { intentRef: 'intent-ref' };
+    },
+    eventAllocationId: 'allocation-1',
+    eventId: 'event-id',
+    form,
+    occurrence,
+    occurrenceId: occurrence.occurrenceId,
+    pendingSubmission: createPending(),
+    values: { quantity: 1, sku: 'event-sku' },
+  });
+
+  assert.equal(intentPayload.occurrence_id, 'occurrence-1');
+});
+
+test('fails closed when a recurring occurrence shares an existing child SKU line', async () => {
+  let createIntentCalls = 0;
+  const occurrence = {
+    occurrenceId: 'occurrence-2',
+    localDate: '2026-08-08',
+    startTime: '10:00',
+    endTime: '12:00',
+    timezone: 'Australia/Sydney',
+  };
+  const cartApi = {
+    fetchGraphQl: async () => cartLinesResponse([
+      cartLine({ intentRef: 'existing-intent' }),
+    ]),
+    initializeCart: async () => ({ id: 'cart-id', items: [] }),
+  };
+
+  await assert.rejects(
+    addCorrelatedEventProduct({
+      cartApi,
+      commerceSku: 'event-sku',
+      createIntent: async () => {
+        createIntentCalls += 1;
+        return { intentRef: 'unexpected' };
+      },
+      eventAllocationId: 'allocation-1',
+      eventId: 'event-id',
+      form,
+      occurrence,
+      occurrenceId: occurrence.occurrenceId,
+      pendingSubmission: createPending(),
+      values: { quantity: 1, sku: 'event-sku' },
+    }),
+    (error) => error.type === EVENT_APP_ERROR_TYPES.INTEGRITY,
+  );
+  assert.equal(createIntentCalls, 0);
 });
 
 test('preserves the canonical Commerce SKU case in the create-intent payload', async () => {

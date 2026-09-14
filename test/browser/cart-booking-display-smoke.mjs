@@ -130,6 +130,27 @@ await evaluate(`(async () => {
     timezone: 'Asia/Ho_Chi_Minh',
     venue: { name: 'City Hall' },
   };
+  const recurringEvent = {
+    eventId: 'recurring-event',
+    organizer: 'Adobe Events',
+    recurrence: {
+      dailyEndTime: '18:00',
+      dailyStartTime: '09:00',
+      endDate: '2026-08-31',
+      sessionDurationMinutes: 90,
+      startDate: '2026-08-01',
+    },
+    scheduleType: 'recurring',
+    timezone: 'Australia/Sydney',
+    venue: { name: 'City Hall' },
+  };
+  const occurrence = {
+    occurrenceId: 'occurrence-1',
+    localDate: '2026-08-08',
+    startTime: '10:00',
+    endTime: '11:30',
+    timezone: 'Australia/Sydney',
+  };
   const item = {
     productAttributes: [
       {
@@ -143,21 +164,44 @@ await evaluate(`(async () => {
     topLevelSku: 'event-sku',
     uid: 'event-line',
   };
+  const recurringItem = {
+    productAttributes: [
+      {
+        code: 'Is Event Ticket',
+        selected_options: [{ label: 'Yes', value: '1' }],
+      },
+      { code: 'External Event Id', value: 'recurring-event' },
+    ],
+    quantity: 1,
+    sku: 'recurring-event-sku',
+    topLevelSku: 'recurring-event-sku',
+    uid: 'recurring-event-line',
+  };
   const eventBus = { on: () => ({ off() {} }) };
   let commerceCalls = 0;
   let enrichmentCalls = 0;
   const dependencies = {
     enrichEvents: async () => {
       enrichmentCalls += 1;
-      return new Map([['event-1', event]]);
+      return new Map([
+        ['event-1', event],
+        ['recurring-event', recurringEvent],
+      ]);
     },
     eventBus,
     fetchCartLines: async () => {
       commerceCalls += 1;
-      return [{
-        bookingIntentRef: 'opaque-intent-must-not-render',
-        uid: 'event-line',
-      }];
+      return [
+        {
+          bookingIntentRef: 'opaque-intent-must-not-render',
+          uid: 'event-line',
+        },
+        {
+          bookingIntentRef: 'opaque-recurring-intent-must-not-render',
+          occurrence,
+          uid: 'recurring-event-line',
+        },
+      ];
     },
     labels,
   };
@@ -226,6 +270,14 @@ await evaluate(`(async () => {
     appendChild: (host) => miniCartBlock.append(host),
     item,
   });
+  cartPresenter.ProductAttributes({
+    appendChild: (host) => cartBlock.append(host),
+    item: recurringItem,
+  });
+  miniCartPresenter.ProductAttributes({
+    appendChild: (host) => miniCartBlock.append(host),
+    item: recurringItem,
+  });
 
   let ordinaryProductAppended = false;
   cartPresenter.ProductAttributes({
@@ -240,8 +292,8 @@ await evaluate(`(async () => {
   });
 
   await Promise.all([
-    cartPresenter.handleCartData({ id: 'cart-id', items: [item] }),
-    miniCartPresenter.handleCartData({ id: 'cart-id', items: [item] }),
+    cartPresenter.handleCartData({ id: 'cart-id', items: [item, recurringItem] }),
+    miniCartPresenter.handleCartData({ id: 'cart-id', items: [item, recurringItem] }),
   ]);
 
   stateBlock.append(
@@ -289,8 +341,8 @@ const desktop = await evaluate(`({
   ...window.__cartBookingReport,
   alerts: [...document.querySelectorAll('[role="alert"]')]
     .map((element) => element.textContent.trim()),
-  cartText: document.querySelector('.commerce-cart .event-cart-booking')
-    ?.innerText.trim(),
+  cartText: [...document.querySelectorAll('.commerce-cart .event-cart-booking')]
+    .map((element) => element.innerText.trim()).join('\\n'),
   confirmationText: document.querySelector(
     '.commerce-checkout .order-confirmation__booking-information',
   )?.innerText.trim(),
@@ -304,8 +356,8 @@ const desktop = await evaluate(`({
   documentWidth: document.documentElement.scrollWidth,
   headings: [...document.querySelectorAll('.event-cart-booking h3')]
     .map((element) => element.textContent.trim()),
-  miniCartText: document.querySelector('.commerce-mini-cart .event-cart-booking')
-    ?.innerText.trim(),
+  miniCartText: [...document.querySelectorAll('.commerce-mini-cart .event-cart-booking')]
+    .map((element) => element.innerText.trim()).join('\\n'),
   statuses: [...document.querySelectorAll('[role="status"]')]
     .map((element) => element.textContent.trim()),
   viewportWidth: window.innerWidth,
@@ -328,12 +380,18 @@ assert.equal(
   true,
 );
 assert.doesNotMatch(desktop.miniCartText, /Organizer/);
+assert.match(desktop.cartText, /(?:8 Aug 2026|Aug 8, 2026)/);
+assert.match(desktop.cartText, /Selected date/);
+assert.match(desktop.cartText, /10:00\s*–\s*11:30 \(Australia\/Sydney\)/);
+assert.match(desktop.miniCartText, /(?:8 Aug 2026|Aug 8, 2026)/);
+assert.match(desktop.miniCartText, /Selected date/);
+assert.match(desktop.miniCartText, /10:00\s*–\s*11:30 \(Australia\/Sydney\)/);
 assert.doesNotMatch(
   `${desktop.cartText}${desktop.miniCartText}${desktop.confirmationText}`,
-  /opaque-intent-must-not-render/,
+  /opaque-(?:recurring-)?intent-must-not-render/,
 );
 assert.equal(desktop.documentWidth <= desktop.viewportWidth, true);
-assert.equal(desktop.definitionLists, 7);
+assert.equal(desktop.definitionLists, 9);
 assert.equal(desktop.alerts.length, 2);
 await captureScreenshot('cart-booking-display-desktop');
 await evaluate(`document.querySelector('.commerce-checkout')

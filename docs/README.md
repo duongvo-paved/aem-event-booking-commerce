@@ -20,6 +20,8 @@ When enabled in `config.json`, the storefront provides:
 
 - Event metadata on the product-detail page, including date, venue, organizer
   when supplied, tags, and age requirement.
+- Recurring event availability with date and start-time selection sourced from
+  the bounded public availability API.
 - An accessible booking form with contact details, consent, an allocation selector,
   and one attendee for each ticket quantity.
 - Idempotent booking-intent creation or identity-based merge followed by addition
@@ -27,6 +29,12 @@ When enabled in `config.json`, the storefront provides:
   cart.
 - A `booking_intent_ref` custom cart-item attribute that correlates the exact cart
   line with the booking intent.
+- Recurring cart lines also retain a validated, non-sensitive occurrence
+  snapshot so cart and mini-cart show the shopper's selected local date and
+  time; legacy lines fall back to the recurring schedule window.
+- Recurring cart additions fail closed when an existing child-SKU line cannot be
+  proven to belong to the selected occurrence; a separate approved occurrence
+  cart-item identity is required to support multiple occurrences in one cart.
 - Privacy-safe booking-status panels in the cart, mini-cart, checkout, and order
   confirmation surfaces.
 - A hosted ticket view that uses an opaque `booking_ref` URL parameter and renders
@@ -121,7 +129,7 @@ Event App calls are off by default. Enable them only with an approved
 {
   "event-app": {
     "enabled": true,
-    "timeout-ms": 8000,
+    "timeout-ms": 30000,
     "allowed-qr-origins": ["https://tickets.example.com"],
     "actions": {
       "enrich": { "url": "https://api.example.com/events", "method": "POST", "encoding": "json-body" },
