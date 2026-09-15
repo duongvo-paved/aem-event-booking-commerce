@@ -138,6 +138,7 @@ test('normalizes recurring schedule metadata and occurrence availability', () =>
   const event = normalizePublicEvent(recurringEvent, 'event-1');
 
   assert.equal(event.scheduleType, 'recurring');
+  assert.equal(event.endsAtUtc, null);
   assert.deepEqual(event.recurrence, {
     dailyEndTime: '18:00',
     dailyStartTime: '09:00',
@@ -157,6 +158,45 @@ test('normalizes recurring schedule metadata and occurrence availability', () =>
     startsAtUtc: '2026-08-01T02:00:00.000Z',
     timezone: 'Australia/Sydney',
   }]);
+});
+
+test('allows recurring events to omit top-level schedule timestamps', () => {
+  const eventWithoutTopLevelSchedule = Object.fromEntries(
+    Object.entries(recurringEvent).filter(
+      ([key]) => !['starts_at_utc', 'ends_at_utc'].includes(key),
+    ),
+  );
+  const event = normalizePublicEvent(eventWithoutTopLevelSchedule, 'event-1');
+
+  assert.equal(event.startsAtUtc, null);
+  assert.equal(event.endsAtUtc, null);
+  assert.equal(event.allocations[0].occurrences[0].startsAtUtc, '2026-08-01T02:00:00.000Z');
+});
+
+test('rejects public events without schema-v2 allocations', () => {
+  const legacyEvent = Object.fromEntries(
+    Object.entries(publicEvent).filter(([key]) => key !== 'allocations'),
+  );
+
+  assert.throws(() => normalizePublicEvent(legacyEvent, 'event-1'));
+});
+
+test('allows recurring events to source their end timestamp from occurrences', () => {
+  const eventWithoutTopLevelEnd = Object.fromEntries(
+    Object.entries(recurringEvent).filter(([key]) => key !== 'ends_at_utc'),
+  );
+  const event = normalizePublicEvent(eventWithoutTopLevelEnd, 'event-1');
+
+  assert.equal(event.endsAtUtc, null);
+  assert.equal(event.allocations[0].occurrences[0].endsAtUtc, '2026-08-01T04:00:00.000Z');
+});
+
+test('requires the persisted event end timestamp for one-time events', () => {
+  const eventWithoutTopLevelEnd = Object.fromEntries(
+    Object.entries(publicEvent).filter(([key]) => key !== 'ends_at_utc'),
+  );
+
+  assert.throws(() => normalizePublicEvent(eventWithoutTopLevelEnd, 'event-1'));
 });
 
 test('allows the public event organizer to be omitted', () => {

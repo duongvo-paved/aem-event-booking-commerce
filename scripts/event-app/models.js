@@ -59,6 +59,11 @@ function optionalString(value, label) {
   return requireString(value, label);
 }
 
+function optionalIsoDate(value, label) {
+  if (value === undefined || value === null || value === '') return null;
+  return requireIsoDate(value, label);
+}
+
 function requireIsoDate(value, label) {
   const normalized = requireString(value, label);
   if (Number.isNaN(Date.parse(normalized))) {
@@ -568,6 +573,12 @@ export function normalizePublicEvent(value, expectedEventId) {
   }
 
   const timezone = requireTimeZone(value.timezone);
+  if (!Array.isArray(value.allocations) || value.allocations.length === 0) {
+    throw new EventAppError(
+      EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+      'Only schema-v2 events are supported',
+    );
+  }
   const allocations = normalizeAllocations(value.allocations);
   allocations.forEach((allocation) => {
     allocation.occurrences?.forEach((occurrence) => {
@@ -594,14 +605,21 @@ export function normalizePublicEvent(value, expectedEventId) {
     });
   });
 
+  const endsAtUtc = scheduleType === 'one_time'
+    ? requireIsoDate(value.ends_at_utc, 'event.ends_at_utc')
+    : optionalIsoDate(value.ends_at_utc, 'event.ends_at_utc');
+  const startsAtUtc = scheduleType === 'one_time'
+    ? requireIsoDate(value.starts_at_utc, 'event.starts_at_utc')
+    : optionalIsoDate(value.starts_at_utc, 'event.starts_at_utc');
+
   return Object.freeze({
     ageRequirement: optionalString(value.age_requirement, 'event.age_requirement'),
-    endsAtUtc: requireIsoDate(value.ends_at_utc, 'event.ends_at_utc'),
+    endsAtUtc: scheduleType === 'recurring' ? null : endsAtUtc,
     eventId,
     organizer: optionalString(value.organizer, 'event.organizer'),
     recurrence,
     scheduleType,
-    startsAtUtc: requireIsoDate(value.starts_at_utc, 'event.starts_at_utc'),
+    startsAtUtc,
     tags: Object.freeze(value.tags.map((tag) => tag.trim())),
     timezone,
     venue: normalizeVenue(value.venue),
