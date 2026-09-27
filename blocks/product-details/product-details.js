@@ -125,6 +125,31 @@ function renderEventAttributes(ctx) {
   ctx.replaceWith($list);
 }
 
+function renderEventDetailsLoading(container, labels) {
+  const loading = document.createElement('div');
+  loading.className = 'product-details__event-loading';
+  loading.setAttribute('role', 'status');
+  loading.setAttribute('aria-busy', 'true');
+
+  const announcement = document.createElement('span');
+  announcement.className = 'product-details__event-loading-announcement';
+  announcement.textContent = labels.Global?.EventDetailsLoading
+    || 'Loading event details';
+  loading.append(announcement);
+
+  const skeleton = document.createElement('div');
+  skeleton.className = 'product-details__event-loading-skeleton';
+  skeleton.setAttribute('aria-hidden', 'true');
+  ['heading', 'line', 'line', 'line'].forEach((part) => {
+    const bar = document.createElement('span');
+    bar.className = `product-details__event-loading-skeleton-${part}`;
+    skeleton.append(bar);
+  });
+
+  loading.append(skeleton);
+  container.replaceChildren(loading);
+}
+
 function createEventBookingAccordion(labels) {
   const details = document.createElement('details');
   details.className = 'event-booking-accordion';
@@ -376,6 +401,9 @@ export default async function decorate(block) {
   }
 
   if (eventMode) {
+    renderEventDetailsLoading($eventDetails, labels);
+    renderEventDetailsLoading($eventDetailsMobile, labels);
+
     const externalEventId = getExternalEventId(product);
     if (
       !eventClient.config.enabled
@@ -388,143 +416,214 @@ export default async function decorate(block) {
       $quantity.replaceChildren();
       $eventActions.replaceChildren();
     } else {
-      try {
-        let event = await eventClient.getEvent(externalEventId);
-        if (event.scheduleType === 'recurring') {
-          event = await eventClient.getAvailability(externalEventId);
-        }
-        pdpApi.setProductConfigurationValues((previous) => ({
-          ...(previous || {}),
-          quantity: 0,
-          sku: product.sku,
-        }));
-        eventSummary = renderEventSummary($eventSummary, {
-          labels,
-          product,
-        });
-        $eventSummary.hidden = false;
+      const loadEventDetails = async () => {
+        try {
+          const event = await eventClient.getEvent(externalEventId);
+          pdpApi.setProductConfigurationValues((previous) => ({
+            ...(previous || {}),
+            quantity: 0,
+            sku: product.sku,
+          }));
+          eventSummary = renderEventSummary($eventSummary, {
+            labels,
+            product,
+          });
+          $eventSummary.hidden = false;
 
-        const accordion = createEventBookingAccordion(labels);
-        eventContent = document.createElement('div');
-        eventContent.className = 'product-details__event-content';
-        renderEventMetadata(eventContent, event, labels);
-        eventContent.append(accordion.details);
+          const accordion = createEventBookingAccordion(labels);
+          eventContent = document.createElement('div');
+          eventContent.className = 'product-details__event-content';
+          renderEventMetadata(eventContent, event, labels);
+          eventContent.append(accordion.details);
 
-        const eventBreakpoint = window.matchMedia('(min-width: 900px)');
-        const placeEventContent = () => {
-          const target = eventBreakpoint.matches ? $eventDetails : $eventDetailsMobile;
-          target.replaceChildren(eventContent);
-        };
-        eventBreakpoint.addEventListener('change', placeEventContent);
-        placeEventContent();
+          const eventBreakpoint = window.matchMedia('(min-width: 900px)');
+          const placeEventContent = () => {
+            const target = eventBreakpoint.matches ? $eventDetails : $eventDetailsMobile;
+            target.replaceChildren(eventContent);
+          };
+          eventBreakpoint.addEventListener('change', placeEventContent);
+          placeEventContent();
 
-        $eventActions.hidden = false;
-        eventBooking = renderEventBooking({
-          cartUrl: rootLink('/cart'),
-          container: accordion.content,
-          event,
-          includeMetadata: false,
-          initialQuantity: 0,
-          labels,
-          onClose: () => {
-            accordion.summary.focus();
-          },
-          onAllocationChange: (allocation) => {
-            selectedAllocation = allocation;
-            pdpApi.setProductConfigurationValues((previous) => ({
-              ...(previous || {}),
-              quantity: 0,
-              sku: allocation?.commerceSku || product.sku,
-            }));
-          },
-          onOccurrenceChange: (occurrence) => {
-            pdpApi.setProductConfigurationValues((previous) => ({
-              ...(previous || {}),
-              quantity: 0,
-              sku: selectedAllocation?.commerceSku || product.sku,
-              occurrenceId: occurrence?.occurrenceId || null,
-            }));
-          },
-          onQuantityChange: (quantity) => eventSummary?.setQuantity(quantity),
-          onQuantityReset: () => {
-            pdpApi.setProductConfigurationValues((previous) => {
-              if (previous) {
-                return {
-                  ...previous,
-                  quantity: 0,
-                  sku: selectedAllocation?.commerceSku || product.sku,
-                };
-              }
-              return { quantity: 0, sku: product.sku };
-            });
-          },
-          onSuccess: (message) => {
-            accordion.open = false;
-            bookingFocusTarget = accordion.summary;
-            renderBookingSuccess(message).catch((error) => {
-              console.error('Failed to render booking success alert:', error);
-            });
-          },
-          addToCart: async ({
-            allocation,
-            form,
-            occurrence,
-            pendingSubmission,
-          }) => {
-            if (!allocation) {
-              throw new EventAppError(
-                EVENT_APP_ERROR_TYPES.REQUEST,
-                'Select an event allocation',
-              );
+          $eventActions.hidden = false;
+          const availabilityByAllocation = new Map();
+          const availabilityRequestsByAllocation = new Map();
+          let availabilityRequestId = 0;
+          const loadAllocationAvailability = async (allocation) => {
+            if (!allocation || event.scheduleType !== 'recurring') return;
+
+            const allocationId = allocation.eventAllocationId;
+            availabilityRequestId += 1;
+            const requestId = availabilityRequestId;
+            eventBooking?.setAvailabilityLoading();
+            const cachedAllocation = availabilityByAllocation.get(allocationId);
+            if (cachedAllocation) {
+              eventBooking?.setAllocationAvailability(cachedAllocation);
+              return;
             }
-            const cartApi = await import('@dropins/storefront-cart/api.js');
-            return addCorrelatedEventProduct({
-              cartApi,
-              commerceSku: allocation.commerceSku,
-              createIntent: (payload) => eventClient.createIntent(payload),
-              eventAllocationId: allocation.eventAllocationId,
-              eventId: event.eventId,
+
+            let availabilityRequest = availabilityRequestsByAllocation.get(allocationId);
+            if (!availabilityRequest) {
+              availabilityRequest = eventClient.getAvailability(
+                externalEventId,
+                { eventAllocationId: allocationId },
+              ).then((availabilityEvent) => {
+                const availableAllocation = availabilityEvent.allocations.find(
+                  (entry) => entry.eventAllocationId === allocationId,
+                );
+                if (!availableAllocation) {
+                  throw new EventAppError(
+                    EVENT_APP_ERROR_TYPES.INVALID_RESPONSE,
+                    'Event availability did not include the selected space',
+                  );
+                }
+                return availableAllocation;
+              });
+              availabilityRequestsByAllocation.set(allocationId, availabilityRequest);
+            }
+
+            try {
+              const availableAllocation = await availabilityRequest;
+              availabilityByAllocation.set(allocationId, availableAllocation);
+              availabilityRequestsByAllocation.delete(allocationId);
+              if (
+                requestId === availabilityRequestId
+                && selectedAllocation?.eventAllocationId === allocationId
+              ) {
+                eventBooking?.setAllocationAvailability(availableAllocation);
+              }
+            } catch (error) {
+              if (availabilityRequestsByAllocation.get(allocationId) === availabilityRequest) {
+                availabilityRequestsByAllocation.delete(allocationId);
+              }
+              if (
+                requestId === availabilityRequestId
+                && selectedAllocation?.eventAllocationId === allocationId
+              ) {
+                eventBooking?.setAvailabilityError();
+              }
+              console.error('Failed to load event availability:', error);
+            }
+          };
+          eventBooking = renderEventBooking({
+            cartUrl: rootLink('/cart'),
+            container: accordion.content,
+            event,
+            includeMetadata: false,
+            initialQuantity: 0,
+            labels,
+            onClose: () => {
+              accordion.summary.focus();
+            },
+            onAllocationChange: (allocation) => {
+              selectedAllocation = allocation;
+              pdpApi.setProductConfigurationValues((previous) => ({
+                ...(previous || {}),
+                quantity: 0,
+                sku: allocation?.commerceSku || product.sku,
+              }));
+              loadAllocationAvailability(allocation);
+            },
+            onOccurrenceChange: (occurrence) => {
+              pdpApi.setProductConfigurationValues((previous) => ({
+                ...(previous || {}),
+                quantity: 0,
+                sku: selectedAllocation?.commerceSku || product.sku,
+                occurrenceId: occurrence?.occurrenceId || null,
+              }));
+            },
+            onQuantityChange: (quantity) => eventSummary?.setQuantity(quantity),
+            onQuantityReset: () => {
+              pdpApi.setProductConfigurationValues((previous) => {
+                if (previous) {
+                  return {
+                    ...previous,
+                    quantity: 0,
+                    sku: selectedAllocation?.commerceSku || product.sku,
+                  };
+                }
+                return { quantity: 0, sku: product.sku };
+              });
+            },
+            onSuccess: (message) => {
+              accordion.open = false;
+              bookingFocusTarget = accordion.summary;
+              renderBookingSuccess(message).catch((error) => {
+                console.error('Failed to render booking success alert:', error);
+              });
+            },
+            addToCart: async ({
+              allocation,
               form,
               occurrence,
-              occurrenceId: occurrence?.occurrenceId,
               pendingSubmission,
-              // The event form validates booking details and selects the
-              // virtual child. Parent PDP option state must not be sent with
-              // the child SKU.
-              values: {
-                quantity: form.quantity,
-                sku: allocation.commerceSku,
-              },
-            });
-          },
-          actionsContainer: $eventActionsContent,
-          quantityElement: $quantity,
-        });
-        const $eventButtons = $eventActionsContent.querySelector(
-          '.event-booking__buttons',
-        );
-        if ($eventButtons && $wishlistToggleBtn) {
-          $eventButtons.append($wishlistToggleBtn);
+            }) => {
+              if (!allocation) {
+                throw new EventAppError(
+                  EVENT_APP_ERROR_TYPES.REQUEST,
+                  'Select an event allocation',
+                );
+              }
+              const cartApi = await import('@dropins/storefront-cart/api.js');
+              return addCorrelatedEventProduct({
+                cartApi,
+                commerceSku: allocation.commerceSku,
+                createIntent: (payload) => eventClient.createIntent(payload),
+                eventAllocationId: allocation.eventAllocationId,
+                eventId: event.eventId,
+                form,
+                occurrence,
+                occurrenceId: occurrence?.occurrenceId,
+                pendingSubmission,
+                // The event form validates booking details and selects the
+                // virtual child. Parent PDP option state must not be sent with
+                // the child SKU.
+                values: {
+                  quantity: form.quantity,
+                  sku: allocation.commerceSku,
+                },
+              });
+            },
+            actionsContainer: $eventActionsContent,
+            quantityElement: $quantity,
+          });
+          if (event.scheduleType === 'recurring') {
+            selectedAllocation = event.allocations.find(
+              (allocation) => allocation.availableQuantity > 0
+                || allocation.occurrences?.some(
+                  (occurrence) => occurrence.availableQuantity > 0,
+                ),
+            ) || null;
+            if (selectedAllocation) {
+              loadAllocationAvailability(selectedAllocation);
+            }
+          }
+          const $eventButtons = $eventActionsContent.querySelector(
+            '.event-booking__buttons',
+          );
+          if ($eventButtons && $wishlistToggleBtn) {
+            $eventButtons.append($wishlistToggleBtn);
+          }
+          eventBooking.setQuantity(0);
+        } catch (error) {
+          renderEventUnavailable(
+            $eventDetails,
+            labels,
+            error.type === EVENT_APP_ERROR_TYPES.NOT_FOUND
+              ? labels.Global?.EventDetailsUnavailable || 'Event details unavailable.'
+              : undefined,
+          );
+          renderEventUnavailable(
+            $eventDetailsMobile,
+            labels,
+            error.type === EVENT_APP_ERROR_TYPES.NOT_FOUND
+              ? labels.Global?.EventDetailsUnavailable || 'Event details unavailable.'
+              : undefined,
+          );
+          $quantity.replaceChildren();
+          $eventActions.replaceChildren();
         }
-        eventBooking.setQuantity(0);
-      } catch (error) {
-        renderEventUnavailable(
-          $eventDetails,
-          labels,
-          error.type === EVENT_APP_ERROR_TYPES.NOT_FOUND
-            ? labels.Global?.EventDetailsUnavailable || 'Event details unavailable.'
-            : undefined,
-        );
-        renderEventUnavailable(
-          $eventDetailsMobile,
-          labels,
-          error.type === EVENT_APP_ERROR_TYPES.NOT_FOUND
-            ? labels.Global?.EventDetailsUnavailable || 'Event details unavailable.'
-            : undefined,
-        );
-        $quantity.replaceChildren();
-        $eventActions.replaceChildren();
-      }
+      };
+      loadEventDetails();
     }
   } else {
     // Configuration – Button - Add to Cart

@@ -249,7 +249,7 @@ await evaluate(`(() => {
   };
   window.__bookingTest.recurringCalls = [];
   window.__bookingTest.recurringEvent = recurringEvent;
-  renderEventBooking({
+  window.__bookingTest.recurringBooking = renderEventBooking({
     addToCart: async ({ occurrence, pendingSubmission }) => {
       window.__bookingTest.recurringCalls.push({
         occurrenceId: occurrence?.occurrenceId,
@@ -274,6 +274,44 @@ const recurringControls = await evaluate(`(() => ({
     .map((option) => ({ disabled: option.disabled, value: option.value })),
 }))()`);
 
+const availabilityStates = await evaluate(`(() => {
+  const booking = window.__bookingTest.recurringBooking;
+  const allocation = window.__bookingTest.recurringEvent.allocations[0];
+  booking.setAvailabilityLoading();
+  const loading = {
+    dateDisabled: document.querySelector('[name="occurrence-date"]').disabled,
+    message: document.querySelector('.event-booking__occurrence-availability').textContent,
+    submitDisabled: document.querySelector('.event-booking__submit').disabled,
+  };
+  booking.setAvailabilityError();
+  const error = {
+    message: document.querySelector('.event-booking__occurrence-availability').textContent,
+    retryButtonPresent: Boolean(document.querySelector('.event-booking__availability-retry')),
+  };
+  booking.setAvailabilityLoading();
+  booking.setAllocationAvailability({
+    ...allocation,
+    occurrences: [...allocation.occurrences],
+  });
+  return {
+    error,
+    loaded: {
+      dateDisabled: document.querySelector('[name="occurrence-date"]').disabled,
+      selectedTime: document.querySelector('[name="occurrence-time"]').value,
+      submitDisabled: document.querySelector('.event-booking__submit').disabled,
+    },
+    loading,
+    retryAllocation: window.__bookingTest.allocationChanges[0],
+  };
+})()`);
+assert.equal(availabilityStates.loading.dateDisabled, true);
+assert.equal(availabilityStates.loading.submitDisabled, true);
+assert.equal(availabilityStates.error.retryButtonPresent, false);
+assert.equal(availabilityStates.error.message, 'Availability could not be loaded.');
+assert.equal(availabilityStates.loaded.dateDisabled, false);
+assert.equal(availabilityStates.loaded.selectedTime, 'occurrence-1');
+assert.equal(availabilityStates.loaded.submitDisabled, false);
+
 await evaluate(`(() => {
   window.__bookingTest.fill();
   document.querySelector('.event-booking__form').requestSubmit();
@@ -289,6 +327,7 @@ const recurringReport = {
 
 const report = {
   allocation: allocationReport,
+  availabilityStates,
   recurring: recurringReport,
   duplicate: duplicateReport,
 };

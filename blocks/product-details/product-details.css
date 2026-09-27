@@ -14,6 +14,56 @@
   display: none;
 }
 
+.product-details__event-loading-announcement {
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  position: absolute;
+  padding: 0;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.product-details__event-loading-skeleton {
+  display: grid;
+  gap: var(--spacing-small);
+  padding: var(--spacing-medium);
+}
+
+.product-details__event-loading-skeleton span {
+  animation: event-details-skeleton-pulse 1.4s ease-in-out infinite;
+  background-color: var(--color-neutral-200);
+  border-radius: var(--shape-border-radius-1);
+  display: block;
+  height: var(--spacing-medium);
+}
+
+.product-details__event-loading-skeleton span.product-details__event-loading-skeleton-heading {
+  height: var(--spacing-big);
+  width: 55%;
+}
+
+.product-details__event-loading-skeleton-line:nth-child(3) {
+  width: 82%;
+}
+
+.product-details__event-loading-skeleton-line:nth-child(4) {
+  width: 68%;
+}
+
+@keyframes event-details-skeleton-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-details__event-loading-skeleton span {
+    animation: none;
+  }
+}
+
 .product-details__right-column {
   grid-column: 1 / span 4;
   color: var(--color-neutral-800);
@@ -265,7 +315,7 @@
   align-items: center;
   display: grid;
   gap: var(--spacing-xsmall);
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
 .block.product-details .event-booking-accordion .event-booking__allocation-option label {
@@ -275,12 +325,6 @@
 .block.product-details .event-booking-accordion .event-booking__allocation-option input:disabled + label {
   color: var(--color-neutral-500);
   cursor: not-allowed;
-}
-
-.block.product-details .event-booking-accordion .event-booking__allocation-availability {
-  color: var(--color-neutral-600);
-  font: var(--type-body-2-default-font);
-  letter-spacing: var(--type-body-2-default-letter-spacing);
 }
 
 .block.product-details .event-booking-accordion .event-booking__occurrences,
@@ -649,7 +693,7 @@
   align-items: center;
   display: grid;
   gap: var(--spacing-xsmall);
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
 .event-booking-modal .event-booking__allocation-option label {
@@ -659,12 +703,6 @@
 .event-booking-modal .event-booking__allocation-option input:disabled + label {
   color: var(--color-neutral-500);
   cursor: not-allowed;
-}
-
-.event-booking-modal .event-booking__allocation-availability {
-  color: var(--color-neutral-600);
-  font: var(--type-body-2-default-font);
-  letter-spacing: var(--type-body-2-default-letter-spacing);
 }
 
 .event-booking-modal .event-booking__field {

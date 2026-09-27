@@ -117,8 +117,13 @@ export function createEventAppClient(config = getEventAppConfig()) {
       return normalizePublicEvent(response?.event, externalEventId);
     },
 
-    async getAvailability(externalEventId, { from, to } = {}) {
+    async getAvailability(externalEventId, {
+      eventAllocationId,
+      from,
+      to,
+    } = {}) {
       const payload = { external_event_id: externalEventId };
+      if (eventAllocationId) payload.event_allocation_id = eventAllocationId;
       if (from) payload.from = from;
       if (to) payload.to = to;
       const response = await request(config, 'availability', payload);

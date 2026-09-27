@@ -201,12 +201,29 @@ function createOccurrenceSelector(event, getAllocation, labels) {
 
   let selectedOccurrence = null;
   let changeHandler = () => {};
+  let availabilityState = 'ready';
 
   function getOccurrences() {
     return getAllocation()?.occurrences || [];
   }
 
   function renderAvailability() {
+    if (availabilityState === 'loading') {
+      availability.textContent = getLabel(
+        labels,
+        'EventAvailabilityLoadingLabel',
+        'Loading available dates and times…',
+      );
+      return;
+    }
+    if (availabilityState === 'error') {
+      availability.textContent = getLabel(
+        labels,
+        'EventAvailabilityErrorLabel',
+        'Availability could not be loaded.',
+      );
+      return;
+    }
     if (!selectedOccurrence) {
       availability.textContent = getLabel(
         labels,
@@ -247,6 +264,7 @@ function createOccurrenceSelector(event, getAllocation, labels) {
   }
 
   function renderDates(preferredDate) {
+    if (availabilityState !== 'ready') return;
     const occurrences = getOccurrences();
     const dates = [...new Set(occurrences.map((occurrence) => occurrence.localDate))];
     dateSelect.replaceChildren();
@@ -294,6 +312,20 @@ function createOccurrenceSelector(event, getAllocation, labels) {
     },
     refresh() {
       renderDates(selectedOccurrence?.localDate);
+    },
+    setAvailabilityState(state) {
+      availabilityState = state;
+      const isReady = state === 'ready';
+      dateSelect.disabled = !isReady;
+      timeSelect.disabled = !isReady;
+      if (!isReady) {
+        selectedOccurrence = null;
+        dateSelect.replaceChildren();
+        timeSelect.replaceChildren();
+      } else {
+        renderDates();
+      }
+      renderAvailability();
     },
   });
 }
@@ -359,14 +391,7 @@ function createAllocationSelector(allocations, labels) {
       .join(' · ');
     label.textContent = location;
 
-    const availability = createTextElement(
-      'span',
-      'event-booking__allocation-availability',
-      allocation.availableQuantity > 0
-        ? `${allocation.availableQuantity} ${getLabel(labels, 'EventAllocationAvailableLabel', 'available')}`
-        : getLabel(labels, 'EventAllocationUnavailableLabel', 'Unavailable'),
-    );
-    wrapper.append(input, label, availability);
+    wrapper.append(input, label);
     return { allocation, input, wrapper };
   });
 
@@ -539,7 +564,9 @@ export function renderEventBooking({
   let quantity = initialQuantity;
   let attendees = [];
   let pendingSubmission = null;
-  const allocations = Array.isArray(event.allocations) ? event.allocations : [];
+  const allocations = Array.isArray(event.allocations)
+    ? [...event.allocations]
+    : [];
   let selectedAllocation = allocations.find(
     (allocation) => hasAvailableAllocation(allocation),
   ) || null;
@@ -1024,6 +1051,35 @@ export function renderEventBooking({
       if (allocations.includes(allocation)) {
         updateAllocationSelection(allocation);
       }
+    },
+    setAvailabilityLoading() {
+      occurrenceSelector?.setAvailabilityState('loading');
+      selectedOccurrence = null;
+      updateSubmitDisabled();
+      onOccurrenceChange?.(null);
+    },
+    setAvailabilityError() {
+      occurrenceSelector?.setAvailabilityState('error');
+      selectedOccurrence = null;
+      updateSubmitDisabled();
+      onOccurrenceChange?.(null);
+    },
+    setAllocationAvailability(allocation) {
+      const index = allocations.findIndex(
+        (entry) => entry.eventAllocationId === allocation?.eventAllocationId,
+      );
+      if (index < 0) return;
+
+      allocations[index] = allocation;
+      allocationSelector.options[index].allocation = allocation;
+      allocationSelector.options[index].input.disabled = !hasAvailableAllocation(allocation);
+      if (selectedAllocation?.eventAllocationId !== allocation.eventAllocationId) return;
+
+      selectedAllocation = allocation;
+      occurrenceSelector?.setAvailabilityState('ready');
+      selectedOccurrence = occurrenceSelector?.getSelected() || null;
+      updateSubmitDisabled();
+      onOccurrenceChange?.(selectedOccurrence);
     },
   });
 }

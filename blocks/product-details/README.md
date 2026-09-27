@@ -76,9 +76,10 @@ No events are emitted by this block. -->
    allocation; unavailable allocations are disabled.
 5. Quantity is bounded by the selected allocation availability and the 20-ticket
    contract limit.
-6. Recurring events load bounded occurrence availability and require a date,
-   start time, and stable `occurrence_id`; one-time events retain the existing
-   date/time metadata behavior.
+6. Recurring events load bounded occurrence availability for the selected
+   allocation only; other allocations load on selection and reuse cached results.
+   Booking requires a date, start time, and stable `occurrence_id`; one-time
+   events retain the existing date/time metadata behavior.
 7. A stable `source_request_id` is reused for a logical retry.
 8. The create-intent request includes the selected child `commerce_sku`,
    `event_allocation_id`, and canonical `attendees`. A different request for the
