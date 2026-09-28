@@ -142,6 +142,7 @@ export default async function decorate(block) {
       if (!expectedIds.has(eventId)) return;
 
       metadata.replaceChildren();
+      metadata.setAttribute('aria-busy', 'false');
       const event = eventMap.get(eventId);
       if (!event) {
         metadata.textContent = labels.Global?.EventDetailsUnavailable
@@ -151,16 +152,21 @@ export default async function decorate(block) {
         return;
       }
 
-      const schedule = document.createElement('span');
-      schedule.className = 'event-card-metadata__schedule';
-      schedule.textContent = formatEventDateRange(event);
+      const schedule = event.startsAtUtc
+        ? document.createElement('span')
+        : null;
+      if (schedule) {
+        schedule.className = 'event-card-metadata__schedule';
+        schedule.textContent = formatEventDateRange(event);
+      }
 
       const venue = document.createElement('span');
       venue.className = 'event-card-metadata__venue';
       venue.textContent = `${event.venue.name}, ${event.venue.address}`;
 
       metadata.classList.remove('event-card-metadata--unavailable');
-      metadata.append(schedule, venue);
+      if (schedule) metadata.append(schedule);
+      metadata.append(venue);
       if (event.organizer) {
         const organizer = document.createElement('span');
         organizer.className = 'event-card-metadata__organizer';
@@ -278,7 +284,22 @@ export default async function decorate(block) {
           const metadata = document.createElement('span');
           metadata.className = 'event-card-metadata';
           metadata.dataset.eventId = eventId;
-          metadata.setAttribute('hidden', '');
+          if (eventClient.config.enabled) {
+            metadata.setAttribute('aria-busy', 'true');
+            [
+              'event-card-metadata__skeleton--schedule',
+              'event-card-metadata__skeleton--venue',
+              'event-card-metadata__skeleton--organizer',
+            ].forEach((skeletonClass) => {
+              const skeleton = document.createElement('span');
+              skeleton.classList.add('event-card-metadata__skeleton');
+              skeleton.classList.add(skeletonClass);
+              skeleton.setAttribute('aria-hidden', 'true');
+              metadata.append(skeleton);
+            });
+          } else {
+            metadata.setAttribute('hidden', '');
+          }
           ctx.appendChild(metadata);
         },
       },

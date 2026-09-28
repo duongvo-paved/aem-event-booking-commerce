@@ -8,8 +8,12 @@ Products whose Commerce attributes include `is_event_ticket` and
 `external_event_id` are enriched through the configured Event App client. One
 batch request is made for the current Commerce page, results are joined by event
 ID, and Commerce ordering is preserved. Enrichment failures leave the Commerce
-cards available. Event products always route to the PDP instead of adding directly
-to cart because attendee data, allocation selection, and booking-intent creation are required first.
+cards available. Event cards show a skeleton only in the event metadata area while
+enrichment is pending. The skeleton is replaced by schedule, venue, and organizer
+details on success, or the existing unavailable message if details cannot be
+loaded. It is omitted when Event App enrichment is disabled. Event products
+always route to the PDP instead of adding directly to cart because attendee data,
+allocation selection, and booking-intent creation are required first.
 
 ## Configuration Options
 
@@ -78,6 +82,7 @@ sorting, and pagination remain consistent with the products shown.
 3. **Filter change**: User toggles facets; dropin calls `search()` with updated filter; block updates result count and URL.
 4. **Pagination**: User changes page; dropin calls `search()` with new page; block scrolls to top and URL is updated.
 5. **Add to cart / wishlist**: Product cards include add-to-cart and wishlist actions; cart and wishlist behavior are handled by their respective dropins.
+6. **Event metadata enrichment**: Event cards show a metadata-only skeleton while the page's batch Event App request is pending. The skeleton is replaced with details or an unavailable message after the request completes.
 
 ### Error Handling
 

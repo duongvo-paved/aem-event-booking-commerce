@@ -92,6 +92,43 @@
   margin-block-start: var(--spacing-xsmall);
 }
 
+.block.product-list-page .event-card-metadata[hidden] {
+  display: none;
+}
+
+.block.product-list-page .event-card-metadata__skeleton {
+  animation: product-list-event-metadata-pulse 1.2s ease-in-out infinite;
+  background: var(--color-neutral-300);
+  border-radius: 2px;
+  display: block;
+  height: 0.9em;
+  width: min(100%, 15rem);
+}
+
+.block.product-list-page .event-card-metadata__skeleton--schedule {
+  width: min(68%, 11rem);
+}
+
+.block.product-list-page .event-card-metadata__skeleton--venue {
+  width: min(100%, 15rem);
+}
+
+.block.product-list-page .event-card-metadata__skeleton--organizer {
+  width: min(54%, 8rem);
+}
+
+@keyframes product-list-event-metadata-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .block.product-list-page .event-card-metadata__skeleton {
+    animation: none;
+  }
+}
+
 .block.product-list-page .event-card-metadata--unavailable {
   color: var(--color-neutral-600);
 }
