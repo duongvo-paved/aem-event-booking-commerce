@@ -403,6 +403,95 @@ function appendDefinitionRow(list, label, value) {
   list.append(term, description);
 }
 
+function formatCartSession(summary, labels, locale) {
+  const { event, occurrence } = summary;
+  const recurring = event.scheduleType === 'recurring';
+  if (recurring && !isValidOccurrenceSnapshot(occurrence)) {
+    return `${labels.selectedDate}: ${labels.selectedDateUnavailable}`;
+  }
+  const timezone = recurring ? 'UTC' : event.timezone;
+  const start = new Date(recurring
+    ? `${occurrence.localDate}T${occurrence.startTime}:00Z` : event.startsAtUtc);
+  const end = new Date(recurring
+    ? `${occurrence.localDate}T${occurrence.endTime}:00Z` : event.endsAtUtc);
+  if (Number.isNaN(start.getTime())) return labels.unavailable;
+  const date = new Intl.DateTimeFormat(locale, {
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: timezone,
+  });
+  const time = new Intl.DateTimeFormat(locale, {
+    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: timezone,
+  });
+  const formatTime = (value) => time.format(value).replace(/\s/g, '').toLowerCase();
+  const sameDay = !Number.isNaN(end.getTime()) && date.format(start) === date.format(end);
+  const endLabel = Number.isNaN(end.getTime()) ? ''
+    : ` – ${sameDay ? '' : `${date.format(end)}, `}${formatTime(end)}`;
+  return `${date.format(start)}, ${formatTime(start)}${endLabel}`;
+}
+
+function createCartDetailIcon(kind) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '1.9');
+  svg.setAttribute('aria-hidden', 'true');
+  const paths = kind === 'date'
+    ? ['M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z', 'M8 3v4M16 3v4M3 10h18']
+    : ['M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10Z', 'M14.2 11a2.2 2.2 0 1 1-4.4 0 2.2 2.2 0 0 1 4.4 0Z'];
+  paths.forEach((value) => {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', value);
+    svg.append(path);
+  });
+  return svg;
+}
+
+function renderCartRowDetails(summary, labels, locale, surface) {
+  const section = document.createElement('section');
+  section.className = `event-cart-booking event-cart-booking--${surface}`;
+  section.setAttribute('aria-label', labels.heading);
+  if (summary.correlationStatus === 'linked' && summary.event) {
+    [
+      ['date', formatCartSession(summary, labels, locale)],
+      ['venue', summary.event.venue.name],
+    ].forEach(([kind, value]) => {
+      const row = document.createElement('p');
+      row.className = `event-cart-booking__${kind}`;
+      const text = document.createElement('span');
+      text.textContent = value;
+      row.append(createCartDetailIcon(kind), text);
+      section.append(row);
+    });
+  } else if (summary.correlationStatus === 'missing') {
+    const status = document.createElement('p');
+    status.className = 'event-cart-booking__status';
+    status.setAttribute('role', 'alert');
+    status.setAttribute('aria-live', 'assertive');
+    status.textContent = labels.attention;
+    section.append(status);
+    const description = document.createElement('p');
+    description.className = 'event-cart-booking__description';
+    description.textContent = labels.attentionMessage;
+    section.append(description);
+  } else {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'event-cart-booking__placeholder';
+    placeholder.setAttribute('role', 'status');
+    placeholder.setAttribute('aria-label', labels.unavailable);
+    for (let index = 0; index < 2; index += 1) {
+      const line = document.createElement('span');
+      line.setAttribute('aria-hidden', 'true');
+      placeholder.append(line);
+    }
+    section.append(placeholder);
+  }
+  const tickets = document.createElement('p');
+  tickets.className = 'event-cart-booking__tickets';
+  tickets.textContent = `${summary.quantity} × ${labels.tickets}`;
+  section.append(tickets);
+  return section;
+}
+
 export function renderCartBookingPanel(
   summary,
   {
@@ -411,6 +500,9 @@ export function renderCartBookingPanel(
     surface,
   },
 ) {
+  if (surface === 'cart' || surface === 'mini-cart') {
+    return renderCartRowDetails(summary, labels || FALLBACK_LABELS, locale || 'en', surface);
+  }
   const model = getCartBookingPanelModel(summary, { labels, locale, surface });
   const section = document.createElement('section');
   section.className = `event-cart-booking event-cart-booking--${surface}`;
@@ -529,7 +621,7 @@ export function createCartBookingPresenter({
     hostsByUid.set(item.uid, hosts);
 
     const summary = summariesByUid.get(item.uid);
-    if (summary) renderHost(host, summary);
+    renderHost(host, summary || createSummary(item, 'unavailable'));
     ctx.appendChild(host);
   }
 

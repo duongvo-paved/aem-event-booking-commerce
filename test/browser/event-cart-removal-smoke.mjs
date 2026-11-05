@@ -178,6 +178,7 @@ await evaluate(`(async () => {
     const slot = createEventItemRemoveAction({
       controller,
       label: 'Remove',
+      variant: 'text',
       renderIcon: (container) => UI.render(Icon, {
         'aria-hidden': 'true',
         size: '32',
@@ -201,8 +202,9 @@ await evaluate(`(async () => {
   window.__removalReport = { payload, reports };
 })()`);
 
-await waitFor('document.querySelectorAll(".event-cart-item__remove svg").length === 2');
-await evaluate(`document.querySelectorAll('.dropin-cart-item__remove')
+await waitFor('document.querySelectorAll(".event-cart-item__remove--text").length === 2');
+assert.equal(await evaluate('document.querySelector(".event-cart-item__remove--text").textContent'), 'Remove');
+await evaluate(`document.querySelectorAll('.dropin-cart-item__remove, .event-cart-item__remove--text')
   .forEach((button) => button.click())`);
 await waitFor('document.querySelectorAll("[role=alert]").length === 2');
 let report = await evaluate(`(() => {
@@ -214,7 +216,7 @@ let report = await evaluate(`(() => {
   return {
     documentWidth: document.documentElement.scrollWidth,
     entries,
-    removeLabels: [...document.querySelectorAll('.dropin-cart-item__remove')]
+    removeLabels: [...document.querySelectorAll('.dropin-cart-item__remove, .event-cart-item__remove--text')]
       .map((button) => button.getAttribute('aria-label')),
     trashIcons: [...document.querySelectorAll('.event-cart-item__remove svg')]
       .map((icon) => ({
@@ -242,10 +244,7 @@ for (const surface of ['cart', 'mini-cart']) {
   assert.match(report.entries[surface].warning, /Retry cancellation/);
 }
 assert.equal(report.removeLabels.every((label) => label === 'Remove Case-sensitive event'), true);
-assert.deepEqual(report.trashIcons, [
-  { ariaHidden: 'true', height: '32', width: '32' },
-  { ariaHidden: 'true', height: '32', width: '32' },
-]);
+assert.deepEqual(report.trashIcons, []);
 assert.equal(report.documentWidth <= report.viewportWidth, true);
 await captureScreenshot('event-cart-removal-warning-desktop');
 

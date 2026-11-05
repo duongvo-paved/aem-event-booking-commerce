@@ -66,13 +66,15 @@ export function createEventItemRemoveAction({
   controller,
   label = 'Remove',
   renderIcon,
+  variant = 'icon',
+  eventOnly = true,
 }) {
   return function EventItemRemoveAction(ctx) {
-    if (!isEventProduct(getEventProduct(ctx.item))) return;
+    if (eventOnly && !isEventProduct(getEventProduct(ctx.item))) return;
 
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = [
+    button.className = variant === 'text' ? 'cart__item-action event-cart-item__remove--text' : [
       'dropin-cart-item__remove',
       'dropin-iconButton',
       'dropin-iconButton--medium',
@@ -81,11 +83,15 @@ export function createEventItemRemoveAction({
     ].join(' ');
     button.setAttribute('aria-label', `${label} ${ctx.item.name || ''}`.trim());
 
-    const icon = document.createElement('span');
-    icon.className = 'event-cart-item__remove-icon';
-    icon.setAttribute('aria-hidden', 'true');
-    button.append(icon);
-    renderIcon?.(icon);
+    if (variant === 'text') {
+      button.textContent = label;
+    } else {
+      const icon = document.createElement('span');
+      icon.className = 'event-cart-item__remove-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      button.append(icon);
+      renderIcon?.(icon);
+    }
 
     button.addEventListener('click', async () => {
       ctx.handleItemsLoading(ctx.item.uid, true);

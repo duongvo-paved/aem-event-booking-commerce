@@ -374,11 +374,9 @@ export default async function decorate(block) {
     // preload mini cart fragment if user has a cart
     if (data) loadMiniCartFragment();
 
-    if (data?.totalQuantity) {
-      cartButton.setAttribute('data-count', data.totalQuantity);
-    } else {
-      cartButton.removeAttribute('data-count');
-    }
+    const count = data?.totalQuantity || 0;
+    cartLabel.textContent = `Cart (${count})`;
+    cartButton.setAttribute('aria-label', `Cart (${count})`);
   }, { eager: true });
 
   /** Search */

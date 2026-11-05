@@ -10,15 +10,23 @@ import {
   Button,
 } from '@dropins/tools/components.js';
 import { h } from '@dropins/tools/preact.js';
+import { render as wishlistRender } from '@dropins/storefront-wishlist/render.js';
+import { WishlistToggle } from '@dropins/storefront-wishlist/containers/WishlistToggle.js';
+import { WishlistAlert } from '@dropins/storefront-wishlist/containers/WishlistAlert.js';
 
 import createModal from '../modal/modal.js';
 import createMiniPDP from '../../scripts/components/commerce-mini-pdp/commerce-mini-pdp.js';
 
 // Initializers
 import '../../scripts/initializers/cart.js';
+import '../../scripts/initializers/wishlist.js';
 
 import { readBlockConfig } from '../../scripts/aem.js';
-import { fetchPlaceholders, rootLink, getProductLink } from '../../scripts/commerce.js';
+import {
+  fetchPlaceholders, rootLink, getProductLink, CS_FETCH_GRAPHQL,
+} from '../../scripts/commerce.js';
+import { isEventProduct } from '../../scripts/event-app/models.js';
+import { createCartProductLinkResolver } from '../../scripts/event-app/cart-product-links.js';
 import { createEventAppClient } from '../../scripts/event-app/client.js';
 import { getEventCartLines } from '../../scripts/event-app/cart.js';
 import {
@@ -72,6 +80,22 @@ export default async function decorate(block) {
   const cancellationWarning = document.createElement('div');
   cancellationWarning.className = 'commerce-mini-cart__cancellation-warning';
   let cancellationAlert = null;
+  const wishlistNotification = document.createElement('div');
+  wishlistNotification.className = 'commerce-mini-cart__wishlist-notification';
+  let wishlistNotificationTimeout;
+  const itemError = document.createElement('div');
+  itemError.className = 'commerce-mini-cart__item-error event-cart-cancellation-warning';
+  itemError.setAttribute('role', 'alert');
+  itemError.hidden = true;
+  events.on('wishlist/alert', ({ action, item }) => {
+    wishlistRender.render(WishlistAlert, {
+      action,
+      item,
+      routeToWishlist: rootLink('/wishlist'),
+    })(wishlistNotification);
+    clearTimeout(wishlistNotificationTimeout);
+    wishlistNotificationTimeout = setTimeout(() => wishlistNotification.replaceChildren(), 5000);
+  });
 
   const removalController = createEventCartRemovalController({
     cancelIntent: (payload) => eventClient.cancelIntent(payload),
@@ -96,11 +120,8 @@ export default async function decorate(block) {
   const eventItemRemoveAction = createEventItemRemoveAction({
     controller: removalController,
     label: placeholders?.Global?.CartRemoveItem || 'Remove',
-    renderIcon: (container) => UI.render(Icon, {
-      'aria-hidden': 'true',
-      size: '32',
-      source: 'Trash',
-    })(container),
+    variant: 'text',
+    eventOnly: false,
   });
 
   const showMessage = (message) => {
@@ -214,24 +235,40 @@ export default async function decorate(block) {
   block.innerHTML = '';
   const miniCartRoot = document.createElement('div');
   miniCartRoot.className = 'commerce-mini-cart__content';
-  block.append(cancellationWarning, miniCartRoot);
+  block.append(cancellationWarning, itemError, wishlistNotification, miniCartRoot);
 
   // Render MiniCart
-  const createProductLink = (product) => getProductLink(product.url.urlKey, product.topLevelSku);
+  const productLinks = createCartProductLinkResolver({ catalog: CS_FETCH_GRAPHQL, getProductLink });
+  const createProductLink = productLinks.routeProduct;
   await provider.render(MiniCart, {
     routeEmptyCartCTA: startShoppingURL ? () => rootLink(startShoppingURL) : undefined,
     routeCart: cartURL ? () => rootLink(cartURL) : undefined,
     routeCheckout: checkoutURL ? () => rootLink(checkoutURL) : undefined,
     routeProduct: createProductLink,
+    enableQuantityUpdate: false,
     undo: undo === 'true',
 
     slots: {
-      ItemRemoveAction: eventItemRemoveAction,
+      ItemRemoveAction: (ctx) => {
+        const placeholder = document.createElement('span');
+        placeholder.hidden = true;
+        ctx.replaceWith(placeholder);
+      },
       ProductAttributes: bookingPresenter.ProductAttributes,
+      ItemTitle: (ctx) => {
+        if (!isEventProduct({ attributes: ctx.item.productAttributes })) return;
+        const heading = document.createElement('h3');
+        heading.className = 'event-mini-cart-item__title';
+        const link = document.createElement('a');
+        link.textContent = ctx.item.name;
+        productLinks.bind(link, ctx.item);
+        heading.append(link);
+        ctx.replaceWith(heading);
+      },
       Thumbnail: (ctx) => {
         const { item, defaultImageProps } = ctx;
         const anchorWrapper = document.createElement('a');
-        anchorWrapper.href = createProductLink(item);
+        productLinks.bind(anchorWrapper, item);
 
         tryRenderAemAssetsImage(ctx, {
           alias: item.sku,
@@ -243,11 +280,11 @@ export default async function decorate(block) {
             height: defaultImageProps.height,
           },
         });
-
-        if (item?.itemType === 'ConfigurableCartItem' && enableUpdatingProduct === 'true') {
-          const editLinkContainer = document.createElement('div');
-          editLinkContainer.className = 'cart-item-edit-container';
-
+      },
+      Footer: (ctx) => {
+        const actions = document.createElement('div');
+        actions.className = 'cart__item-actions';
+        if (ctx.item?.itemType === 'ConfigurableCartItem' && enableUpdatingProduct === 'true') {
           const editLink = document.createElement('div');
           editLink.className = 'cart-item-edit-link';
 
@@ -256,12 +293,30 @@ export default async function decorate(block) {
             variant: 'tertiary',
             size: 'medium',
             icon: h(Icon, { source: 'Edit' }),
-            onClick: () => handleEditButtonClick(item),
+            onClick: () => handleEditButtonClick(ctx.item),
           })(editLink);
 
-          editLinkContainer.appendChild(editLink);
-          ctx.appendChild(editLinkContainer);
+          actions.append(editLink);
         }
+        const wishlist = document.createElement('div');
+        wishlist.className = 'cart__action--wishlist-toggle';
+        wishlistRender.render(WishlistToggle, {
+          product: ctx.item,
+          size: 'medium',
+          labelToWishlist: placeholders?.Global?.CartSaveForLater || 'Save for later',
+          labelWishlisted: placeholders?.Global?.CartRemoveFromWishlist || 'Remove from saved events',
+          removeProdFromCart: Cart.updateProductsFromCart,
+        })(wishlist);
+        actions.append(wishlist);
+        eventItemRemoveAction({
+          ...ctx,
+          handleItemsError: (_uid, message) => {
+            itemError.textContent = message || '';
+            itemError.hidden = !message;
+          },
+          replaceWith: (button) => actions.append(button),
+        });
+        ctx.appendChild(actions);
       },
     },
   })(miniCartRoot);
