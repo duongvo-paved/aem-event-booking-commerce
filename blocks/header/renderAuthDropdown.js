@@ -54,9 +54,14 @@ export function renderAuthDropdown(navTools) {
   );
   const authDropinContainer = navTools.querySelector('#auth-dropin-container');
   const loginButton = navTools.querySelector('.nav-dropdown-button');
+  const dropdownWrapper = loginButton.closest('.dropdown-wrapper');
+  const accountLink = authDropDownMenuList.querySelector('a');
+  accountLink.textContent = 'My account';
   const logoutButtonElement = navTools.querySelector(
     '.authenticated-user-menu > li > button',
   );
+  logoutButtonElement.textContent = 'Log out';
+  logoutButtonElement.type = 'button';
 
   authDropDownPanel.addEventListener('click', (e) => e.stopPropagation());
 
@@ -64,14 +69,22 @@ export function renderAuthDropdown(navTools) {
     const show = state ?? !authDropDownPanel.classList.contains('nav-tools-panel--show');
 
     authDropDownPanel.classList.toggle('nav-tools-panel--show', show);
+    loginButton.setAttribute('aria-expanded', String(show));
     authDropDownPanel.setAttribute('role', 'dialog');
-    authDropDownPanel.setAttribute('aria-hidden', 'false');
-    authDropDownPanel.setAttribute('aria-labelledby', 'modal-title');
-    authDropDownPanel.setAttribute('aria-describedby', 'modal-description');
-    authDropDownPanel.focus();
+    authDropDownPanel.id = 'login-modal';
+    authDropDownPanel.setAttribute('aria-hidden', String(!show));
+    authDropDownPanel.setAttribute('aria-label', 'Account');
+    if (show && dropdownWrapper.classList.contains('nav-authenticated')) accountLink.focus();
   }
 
   loginButton.addEventListener('click', () => toggleDropDownAuthMenu());
+  dropdownWrapper.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && loginButton.getAttribute('aria-expanded') === 'true') {
+      event.preventDefault();
+      toggleDropDownAuthMenu(false);
+      loginButton.focus();
+    }
+  });
   document.addEventListener('click', async (e) => {
     const clickOnDropDownPanel = authDropDownPanel.contains(e.target);
     const clickOnLoginButton = loginButton.contains(e.target);
@@ -97,10 +110,20 @@ export function renderAuthDropdown(navTools) {
     const getUserNameCookie = getCookie('auth_dropin_firstname');
 
     if (isAuthenticated || getUserTokenCookie) {
+      dropdownWrapper.classList.add('nav-authenticated');
       authDropDownMenuList.style.display = 'block';
       authDropinContainer.style.display = 'none';
       loginButton.textContent = `Hi, ${getUserNameCookie}`;
+      const chevron = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      chevron.setAttribute('viewBox', '0 0 24 24');
+      chevron.setAttribute('aria-hidden', 'true');
+      chevron.classList.add('nav-account-chevron');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', 'M6 9.5l6 6 6-6');
+      chevron.append(path);
+      loginButton.append(chevron);
     } else {
+      dropdownWrapper.classList.remove('nav-authenticated');
       authDropDownMenuList.style.display = 'none';
       authDropinContainer.style.display = 'block';
       loginButton.innerHTML = `

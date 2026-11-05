@@ -1,3 +1,15 @@
 body.columns main > .section > div.commerce-account-header-wrapper {
     margin-bottom: 0;
 }
+
+.commerce-account-header {
+    padding-block: var(--spacing-medium);
+    color: var(--color-brand-700);
+}
+
+.commerce-account-header h1,
+.commerce-account-header h2 {
+    color: var(--color-brand-700);
+    font-weight: 700;
+    letter-spacing: normal;
+}

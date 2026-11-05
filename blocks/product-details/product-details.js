@@ -50,8 +50,11 @@ import {
   addCorrelatedEventProduct,
 } from '../../scripts/event-app/cart.js';
 import {
+  getProductPrice,
+  formatBookingDate,
   renderEventBooking,
   renderEventMetadata,
+  renderEventFacts,
   renderEventSummary,
   renderEventUnavailable,
 } from './event-booking.js';
@@ -125,7 +128,12 @@ function renderEventAttributes(ctx) {
   ctx.replaceWith($list);
 }
 
-function renderEventDetailsLoading(container, labels) {
+function renderEventDetailsLoading(
+  container,
+  labels,
+  message,
+  parts = ['heading', 'line', 'line', 'line'],
+) {
   const loading = document.createElement('div');
   loading.className = 'product-details__event-loading';
   loading.setAttribute('role', 'status');
@@ -133,14 +141,14 @@ function renderEventDetailsLoading(container, labels) {
 
   const announcement = document.createElement('span');
   announcement.className = 'product-details__event-loading-announcement';
-  announcement.textContent = labels.Global?.EventDetailsLoading
+  announcement.textContent = message || labels.Global?.EventDetailsLoading
     || 'Loading event details';
   loading.append(announcement);
 
   const skeleton = document.createElement('div');
   skeleton.className = 'product-details__event-loading-skeleton';
   skeleton.setAttribute('aria-hidden', 'true');
-  ['heading', 'line', 'line', 'line'].forEach((part) => {
+  parts.forEach((part) => {
     const bar = document.createElement('span');
     bar.className = `product-details__event-loading-skeleton-${part}`;
     skeleton.append(bar);
@@ -150,20 +158,103 @@ function renderEventDetailsLoading(container, labels) {
   container.replaceChildren(loading);
 }
 
-function createEventBookingAccordion(labels) {
-  const details = document.createElement('details');
-  details.className = 'event-booking-accordion';
-  details.open = true;
+function createEventBreadcrumbs(product, labels, categories = []) {
+  const nav = document.createElement('nav');
+  nav.className = 'product-details__breadcrumbs';
+  nav.setAttribute('aria-label', labels.Global?.BreadcrumbNavigationLabel || 'Breadcrumb');
+  const list = document.createElement('ol');
+  list.setAttribute('role', 'list');
+  const available = categories.filter(
+    (category) => category?.name?.trim() && category?.slug?.trim(),
+  );
+  // A product can belong to several branches; use the most specific one consistently.
+  const selected = [...available].sort((first, second) => (
+    (second.level || 0) - (first.level || 0) || first.slug.localeCompare(second.slug)
+  ))[0];
+  const trail = selected ? [...(selected.parents || []), selected]
+    .filter((category) => category?.name?.trim() && category?.slug?.trim())
+    .sort((first, second) => (first.level || 0) - (second.level || 0)) : [];
+  const seen = new Set();
+  const categoryLinks = trail.filter((category) => {
+    if (seen.has(category.slug)) return false;
+    seen.add(category.slug);
+    return true;
+  }).map((category) => [category.name, rootLink(`/${category.slug.replace(/^\/+/, '')}`)]);
+  [
+    [labels.Global?.BreadcrumbHomeLabel || 'Home', rootLink('/')],
+    ...categoryLinks,
+    [product.name, null],
+  ].forEach(([label, href]) => {
+    const item = document.createElement('li');
+    if (list.children.length) {
+      const separator = document.createElement('span');
+      separator.className = 'product-details__breadcrumb-separator';
+      separator.setAttribute('aria-hidden', 'true');
+      separator.textContent = '/';
+      item.append(separator);
+    }
+    const element = document.createElement(href ? 'a' : 'span');
+    element.textContent = label;
+    if (href) element.href = href;
+    else element.setAttribute('aria-current', 'page');
+    item.append(element);
+    list.append(item);
+  });
+  nav.append(list);
+  return nav;
+}
 
-  const summary = document.createElement('summary');
+async function loadEventBreadcrumbs(nav, product, labels) {
+  try {
+    // Category context is not included in the installed PDP ProductModel.
+    const { data } = await pdpApi.fetchGraphQl(`
+      query GET_EVENT_BREADCRUMBS($sku: String!) {
+        products(skus: [$sku]) {
+          sku
+          categories {
+            name
+            slug
+            level
+            parents { name slug level }
+          }
+        }
+      }
+    `, { method: 'GET', variables: { sku: product.sku } });
+    const categories = data?.products?.find((entry) => entry.sku === product.sku)?.categories;
+    if (Array.isArray(categories) && nav.isConnected) {
+      nav.replaceWith(createEventBreadcrumbs(product, labels, categories));
+    }
+  } catch (error) {
+    console.debug('Event breadcrumb categories unavailable:', error);
+  }
+}
+
+function createEventBookingAccordion(labels, paid = false) {
+  const details = document.createElement(paid ? 'section' : 'details');
+  details.className = 'event-booking-accordion';
+  if (!paid) details.open = true;
+  else details.classList.add('event-booking-panel');
+
+  const summary = document.createElement(paid ? 'h2' : 'summary');
   summary.className = 'event-booking-accordion__summary';
-  summary.textContent = labels.Global?.EventBookingHeading || 'Booking details';
+  summary.textContent = labels.Global?.EventBookTicketsHeading || 'Book tickets';
 
   const content = document.createElement('div');
   content.className = 'event-booking-accordion__content';
-  details.append(summary, content);
+  const date = document.createElement('p');
+  date.className = 'event-booking-panel__date';
+  if (paid) {
+    const header = document.createElement('div');
+    header.className = 'event-booking-panel__header';
+    header.append(summary, date);
+    details.append(header, content);
+  } else {
+    details.append(summary, content);
+  }
 
-  return { content, details, summary };
+  return {
+    content, details, summary, date,
+  };
 }
 
 export default async function decorate(block) {
@@ -174,12 +265,14 @@ export default async function decorate(block) {
   const labels = await fetchPlaceholders();
   const eventClient = createEventAppClient();
   const eventMode = isEventProduct(product);
+  const paidEvent = eventMode && getProductPrice(product)?.amount > 0;
   const displayableEventAttributes = getDisplayableAttributes(
     product?.attributes,
     eventMode,
   );
   let eventBooking = null;
   block.classList.toggle('product-details--event', eventMode);
+  block.classList.toggle('product-details--paid-event', paidEvent);
 
   // Read itemUid from URL
   const urlParams = new URLSearchParams(window.location.search);
@@ -233,6 +326,9 @@ export default async function decorate(block) {
   const $description = fragment.querySelector('.product-details__description');
   const $attributes = fragment.querySelector('.product-details__attributes');
 
+  const $eventFacts = document.createElement('div');
+  $eventFacts.className = 'product-details__event-facts';
+
   const $eventSummary = document.createElement('div');
   $eventSummary.className = 'product-details__event-summary';
   $eventSummary.hidden = true;
@@ -246,11 +342,42 @@ export default async function decorate(block) {
   $eventActions.append($eventActionsContent);
   $description.after($eventSummary, $eventActions);
 
-  const $bookingStatus = document.createElement('div');
-  $bookingStatus.className = 'product-details__booking-status';
-  $eventActions.prepend($bookingStatus);
-
+  if (eventMode) {
+    // DOM order is also the reading and keyboard order at every breakpoint.
+    const wrapper = fragment.querySelector('.product-details__wrapper');
+    const information = document.createElement('div');
+    information.className = 'product-details__event-information';
+    information.append($shortDescription, $description, $attributes);
+    wrapper.replaceChildren(
+      $header,
+      $eventFacts,
+      $gallery,
+      $eventActions,
+      information,
+      $eventDetails,
+    );
+    $gallery.append($wishlistToggleBtn);
+  }
   block.replaceChildren(fragment);
+  if (eventMode) {
+    const breadcrumbs = createEventBreadcrumbs(product, labels);
+    block.prepend(breadcrumbs);
+    loadEventBreadcrumbs(breadcrumbs, product, labels);
+    renderEventDetailsLoading(
+      $eventFacts,
+      labels,
+      labels.Global?.EventSummaryLoading || 'Loading event date and venue',
+      ['line', 'line'],
+    );
+    const placeholder = createEventBookingAccordion(labels, paidEvent);
+    renderEventDetailsLoading(
+      placeholder.content,
+      labels,
+      labels.Global?.EventTicketDetailsLoading || 'Loading ticket details',
+    );
+    $eventActionsContent.replaceChildren(placeholder.details);
+    $eventActions.hidden = false;
+  }
 
   const gallerySlots = {
     CarouselThumbnail: (ctx) => {
@@ -299,8 +426,8 @@ export default async function decorate(block) {
     _attributes,
     wishlistToggleBtn,
   ] = await Promise.all([
-    // Gallery (Mobile)
-    pdpRendered.render(ProductGallery, {
+    // Event pages use one gallery at every breakpoint.
+    eventMode ? Promise.resolve(null) : pdpRendered.render(ProductGallery, {
       controls: 'dots',
       arrows: true,
       arrowsOnMainImage: eventMode,
@@ -334,7 +461,11 @@ export default async function decorate(block) {
     })($gallery),
 
     // Header
-    pdpRendered.render(ProductHeader, {})($header),
+    pdpRendered.render(ProductHeader, eventMode ? {
+      hideSku: true,
+      role: 'heading',
+      'aria-level': 1,
+    } : {})($header),
 
     // Price
     pdpRendered.render(ProductPrice, {})($price),
@@ -356,7 +487,8 @@ export default async function decorate(block) {
     })($options),
 
     // Configuration  Quantity
-    pdpRendered.render(ProductQuantity, productQuantityProps)($quantity),
+    paidEvent ? Promise.resolve(null)
+      : pdpRendered.render(ProductQuantity, productQuantityProps)($quantity),
 
     // Configuration  Gift Card Options
     pdpRendered.render(ProductGiftCardOptions, {})($giftCardOptions),
@@ -378,27 +510,10 @@ export default async function decorate(block) {
     })($wishlistToggleBtn),
   ]);
 
-  let addToCart = null;
-  let bookingSuccessAlert = null;
-  let bookingFocusTarget = null;
-  let selectedAllocation = null;
+  if (eventMode) $gallery.append($wishlistToggleBtn);
 
-  async function renderBookingSuccess(message) {
-    bookingSuccessAlert?.remove();
-    bookingSuccessAlert = await UI.render(InLineAlert, {
-      type: 'success',
-      heading: message,
-      role: 'status',
-      'aria-live': 'polite',
-      tabIndex: -1,
-      onDismiss: () => {
-        bookingSuccessAlert?.remove();
-        bookingSuccessAlert = null;
-        bookingFocusTarget?.focus();
-      },
-    })($bookingStatus);
-    $bookingStatus.querySelector('[role="status"]')?.focus();
-  }
+  let addToCart = null;
+  let selectedAllocation = null;
 
   if (eventMode) {
     renderEventDetailsLoading($eventDetails, labels);
@@ -413,8 +528,10 @@ export default async function decorate(block) {
     ) {
       renderEventUnavailable($eventDetails, labels);
       renderEventUnavailable($eventDetailsMobile, labels);
+      $eventFacts.replaceChildren();
       $quantity.replaceChildren();
       $eventActions.replaceChildren();
+      $eventActions.hidden = true;
     } else {
       const loadEventDetails = async () => {
         try {
@@ -427,24 +544,28 @@ export default async function decorate(block) {
           eventSummary = renderEventSummary($eventSummary, {
             labels,
             product,
+            paid: paidEvent,
           });
           $eventSummary.hidden = false;
 
-          const accordion = createEventBookingAccordion(labels);
+          const accordion = createEventBookingAccordion(labels, paidEvent);
+          const updatePanelDate = (occurrence) => {
+            accordion.date.textContent = formatBookingDate(event, occurrence)
+              || labels.Global?.EventChooseSessionPrompt || 'Choose a date and start time';
+          };
+          updatePanelDate(null);
           eventContent = document.createElement('div');
           eventContent.className = 'product-details__event-content';
-          renderEventMetadata(eventContent, event, labels);
-          eventContent.append(accordion.details);
+          renderEventMetadata(eventContent, event, labels, { product });
+          renderEventFacts($eventFacts, event);
+          $eventActionsContent.replaceChildren(accordion.details);
 
-          const eventBreakpoint = window.matchMedia('(min-width: 900px)');
-          const placeEventContent = () => {
-            const target = eventBreakpoint.matches ? $eventDetails : $eventDetailsMobile;
-            target.replaceChildren(eventContent);
-          };
-          eventBreakpoint.addEventListener('change', placeEventContent);
-          placeEventContent();
+          $eventDetails.replaceChildren(eventContent);
 
           $eventActions.hidden = false;
+          const sessionFirst = paidEvent && event.scheduleType === 'recurring';
+          let selectedDate = '';
+          const availabilityByDate = new Map();
           const availabilityByAllocation = new Map();
           const availabilityRequestsByAllocation = new Map();
           let availabilityRequestId = 0;
@@ -504,8 +625,43 @@ export default async function decorate(block) {
               console.error('Failed to load event availability:', error);
             }
           };
+          const loadDateAvailability = async (date) => {
+            selectedDate = date;
+            availabilityRequestId += 1;
+            const requestId = availabilityRequestId;
+            if (!date) return;
+            eventBooking?.setAvailabilityLoading();
+            let request = availabilityByDate.get(date);
+            if (!request) {
+              request = eventClient.getAvailability(externalEventId, { from: date, to: date });
+              availabilityByDate.set(date, request);
+            }
+            try {
+              const availabilityEvent = await request;
+              if (availabilityByDate.get(date) === request) availabilityByDate.delete(date);
+              if (requestId === availabilityRequestId && selectedDate === date) {
+                eventBooking?.setSessionAvailability(availabilityEvent);
+              }
+            } catch (error) {
+              if (availabilityByDate.get(date) === request) availabilityByDate.delete(date);
+              if (requestId === availabilityRequestId && selectedDate === date) {
+                eventBooking?.setAvailabilityError();
+              }
+              console.error('Failed to load event session availability:', error);
+            }
+          };
           eventBooking = renderEventBooking({
             cartUrl: rootLink('/cart'),
+            checkoutUrl: rootLink('/checkout'),
+            browseUrl: rootLink('/events'),
+            product,
+            paid: paidEvent,
+            loadProducts: pdpApi.getProductsData,
+            onPriceChange: (child) => eventSummary?.setProduct(child),
+            onAvailabilityRetry: (allocation) => loadAllocationAvailability(allocation),
+            onDateChange: (date) => loadDateAvailability(date),
+            onSessionChange: (session) => updatePanelDate(session),
+            summaryElement: $eventSummary,
             container: accordion.content,
             event,
             includeMetadata: false,
@@ -521,9 +677,10 @@ export default async function decorate(block) {
                 quantity: 0,
                 sku: allocation?.commerceSku || product.sku,
               }));
-              loadAllocationAvailability(allocation);
+              if (!sessionFirst) loadAllocationAvailability(allocation);
             },
             onOccurrenceChange: (occurrence) => {
+              if (!sessionFirst) updatePanelDate(occurrence);
               pdpApi.setProductConfigurationValues((previous) => ({
                 ...(previous || {}),
                 quantity: 0,
@@ -531,7 +688,16 @@ export default async function decorate(block) {
                 occurrenceId: occurrence?.occurrenceId || null,
               }));
             },
-            onQuantityChange: (quantity) => eventSummary?.setQuantity(quantity),
+            onQuantityChange: (quantity) => {
+              eventSummary?.setQuantity(quantity);
+              if (paidEvent && pdpApi.getProductConfigurationValues()?.quantity !== quantity) {
+                pdpApi.setProductConfigurationValues((previous) => ({
+                  ...(previous || {}),
+                  quantity,
+                  sku: selectedAllocation?.commerceSku || product.sku,
+                }));
+              }
+            },
             onQuantityReset: () => {
               pdpApi.setProductConfigurationValues((previous) => {
                 if (previous) {
@@ -542,13 +708,6 @@ export default async function decorate(block) {
                   };
                 }
                 return { quantity: 0, sku: product.sku };
-              });
-            },
-            onSuccess: (message) => {
-              accordion.open = false;
-              bookingFocusTarget = accordion.summary;
-              renderBookingSuccess(message).catch((error) => {
-                console.error('Failed to render booking success alert:', error);
               });
             },
             addToCart: async ({
@@ -583,28 +742,15 @@ export default async function decorate(block) {
                 },
               });
             },
-            actionsContainer: $eventActionsContent,
             quantityElement: $quantity,
           });
-          if (event.scheduleType === 'recurring') {
-            selectedAllocation = event.allocations.find(
-              (allocation) => allocation.availableQuantity > 0
-                || allocation.occurrences?.some(
-                  (occurrence) => occurrence.availableQuantity > 0,
-                ),
-            ) || null;
-            if (selectedAllocation) {
-              loadAllocationAvailability(selectedAllocation);
-            }
-          }
-          const $eventButtons = $eventActionsContent.querySelector(
-            '.event-booking__buttons',
-          );
-          if ($eventButtons && $wishlistToggleBtn) {
-            $eventButtons.append($wishlistToggleBtn);
-          }
+          selectedAllocation = eventBooking.getSelectedAllocation();
+          if (selectedAllocation && !sessionFirst) loadAllocationAvailability(selectedAllocation);
+          // Saving is separate from the booking action.
+          $gallery.append($wishlistToggleBtn);
           eventBooking.setQuantity(0);
         } catch (error) {
+          $eventFacts.replaceChildren();
           renderEventUnavailable(
             $eventDetails,
             labels,
@@ -621,6 +767,7 @@ export default async function decorate(block) {
           );
           $quantity.replaceChildren();
           $eventActions.replaceChildren();
+          $eventActions.hidden = true;
         }
       };
       loadEventDetails();
@@ -741,7 +888,7 @@ export default async function decorate(block) {
   }, { eager: true });
 
   events.on('pdp/data', (payload) => {
-    if (eventMode && payload?.sku) {
+    if (eventMode && !paidEvent && payload?.sku) {
       eventSummary?.setProduct(payload);
     }
   }, { eager: true });

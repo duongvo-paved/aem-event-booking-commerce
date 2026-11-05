@@ -46,6 +46,23 @@ await renderCheckoutSuccess(container, { orderData });
 
 ## Behavior
 
+When an event booking snapshot is supplied, confirmation uses booking-focused
+copy and event cards while retaining Commerce's order number, payment status,
+costs and existing guest account offer. Shipping status is hidden only when every
+ordered SKU is included in the supplied event summaries. A Commerce order number
+is never relabeled as a public booking reference.
+
+Each linked event with a product name and valid start/end times offers a native
+`.ics` download. Recurring events require the selected occurrence; the complete
+series is never exported as one booking. Local occurrence times are converted to
+UTC using their timezone. Missing, invalid, nonexistent or ambiguous DST times
+suppress the action. Calendar files contain event title, time and venue only,
+without booking identifiers or attendee/contact data. No calendar service or
+additional network request is used.
+
+Ticket downloads, receipt retrieval and automatic booking/account association
+remain outside this presentation change.
+
 - Scrolls to top on load for proper confirmation visibility.
 - Loads `commerce-checkout-success.css` styles.
 - Fetches localized placeholders and mounts the Order drop-in initializer with `langDefinitions` and optional `orderData`.

@@ -868,3 +868,868 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* One booking panel contains ticket choice, attendee fields, totals and actions. */
+.product-details.product-details--event .product-details__event-actions {
+  margin-top: var(--spacing-medium);
+}
+
+.product-details .event-booking-accordion {
+  background: var(--color-neutral-50);
+  box-shadow: 0 2px 8px rgb(0 46 90 / 8%);
+}
+
+.product-details .event-booking-accordion__summary {
+  color: var(--color-brand-700);
+}
+
+.block.product-details .event-booking-accordion [hidden],
+.event-booking-modal [hidden] {
+  display: none;
+}
+
+.product-details .event-booking__actions,
+.product-details .event-booking__buttons {
+  display: grid;
+  gap: var(--spacing-small);
+}
+
+.product-details .event-booking__availability-warning {
+  color: var(--color-warning-800);
+  font-weight: 700;
+  margin: 0;
+}
+
+.product-details .event-booking__success {
+  padding: var(--spacing-small);
+  border: 1px solid var(--color-positive-800);
+  border-radius: 4px;
+  background: var(--color-positive-200);
+  overflow-wrap: anywhere;
+}
+
+.product-details .event-booking__success-heading {
+  color: var(--color-positive-800);
+  font: var(--type-headline-2-strong-font);
+  margin: 0 0 var(--spacing-small);
+}
+
+.product-details .event-booking__success-heading::before {
+  content: '✓ ';
+}
+
+.product-details .event-booking__success-name {
+  font-weight: 700;
+}
+
+.product-details .event-booking__success-links {
+  display: grid;
+  gap: var(--spacing-xsmall);
+  margin-block: var(--spacing-small);
+}
+
+.product-details .event-booking__success-links a,
+.product-details .event-booking__book-again {
+  box-sizing: border-box;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--color-brand-500);
+  border-radius: 4px;
+  background: var(--color-neutral-50);
+  color: var(--color-brand-600);
+  font: inherit;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.product-details .event-booking__success-links a:first-child {
+  background: var(--color-brand-500);
+  color: var(--color-neutral-50);
+}
+
+.product-details .event-booking__success :focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 3px;
+}
+
+/* Event information follows the prototype; paid booking styles remain scoped. */
+.block.product-details--event .product-details__wrapper {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px 24px;
+}
+
+.block.product-details--event .product-details__wrapper > * {
+  min-width: 0;
+  margin: 0;
+}
+
+.block.product-details--event .product-details__gallery {
+  position: relative;
+  border-radius: 4px;
+}
+
+.block.product-details--event .product-details__buttons__add-to-wishlist {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 2;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.block.product-details--event .product-details__event-details {
+  display: block;
+}
+
+.block.product-details--paid-event h1,
+.block.product-details--paid-event h2,
+.block.product-details--paid-event legend {
+  color: #002e5a;
+}
+
+.block.product-details--paid-event .event-booking-panel {
+  border: 1px solid #c6d2dc;
+  border-radius: 4px;
+  box-shadow: none;
+  background: #fff;
+}
+
+.block.product-details--paid-event .event-booking-panel > h2 {
+  margin: 0;
+  padding: 20px;
+  border-bottom: 1px solid #c6d2dc;
+  font-size: 24px;
+  cursor: default;
+}
+
+.block.product-details--paid-event .event-booking-panel > h2::after,
+.block.product-details--paid-event .event-summary__header::after,
+.block.product-details--paid-event .event-booking__form > .event-booking__heading {
+  display: none;
+}
+
+.block.product-details--paid-event .event-booking__form {
+  gap: 20px;
+}
+
+.block.product-details.product-details--paid-event .event-booking-panel .event-booking__field input,
+.block.product-details.product-details--paid-event .event-booking-panel select {
+  box-sizing: border-box;
+  min-height: 46px;
+  border: 1px solid #c6d2dc;
+  border-radius: 4px;
+}
+
+.block.product-details.product-details--paid-event .event-booking-panel .event-booking__submit {
+  min-height: 54px;
+  border-radius: 4px;
+  background: #0068b1;
+  color: #fff;
+}
+
+.block.product-details--paid-event .event-booking__submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.block.product-details--paid-event .event-booking__price {
+  margin: 0;
+  color: #002e5a;
+  font-weight: 700;
+}
+
+.block.product-details--paid-event .event-booking__inventory,
+.block.product-details--paid-event .event-booking__checkout-note {
+  margin: 0;
+  font-size: 14px;
+}
+
+.block.product-details--paid-event .event-booking__actions {
+  padding: 16px 0;
+  background: #fff;
+  border-top: 1px solid #c6d2dc;
+}
+
+.block.product-details--paid-event .event-summary__header {
+  cursor: default;
+}
+
+.block.product-details--paid-event .event-summary__total-value {
+  font-size: 24px;
+}
+
+.block.product-details--paid-event [hidden] {
+  display: none;
+}
+
+/* Stick only inside the panel's own scroll area, reserving room for focus/errors. */
+@media (min-width: 900px) and (min-height: 850px) {
+  .block.product-details--paid-event .event-booking-panel {
+    max-height: calc(100dvh - 220px);
+    overflow-y: auto;
+    scroll-padding-block: 24px 340px;
+  }
+
+  .block.product-details--paid-event .event-booking__actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+  }
+
+  .block.product-details--paid-event .event-booking__field {
+    scroll-margin-block: 24px 340px;
+  }
+}
+
+@media (min-width: 900px) {
+  .block.product-details--event .product-details__wrapper {
+    grid-template-columns: minmax(0, 7fr) minmax(320px, 4fr);
+    grid-template-rows: auto auto auto auto 1fr;
+    column-gap: 40px;
+    align-items: start;
+  }
+
+  .block.product-details--event .product-details__gallery,
+  .block.product-details--event .product-details__header,
+  .block.product-details--event .product-details__event-details,
+  .block.product-details--event .product-details__event-information,
+  .block.product-details--event .product-details__event-facts {
+    grid-column: 1;
+  }
+
+  .block.product-details--event .product-details__event-actions {
+    grid-column: 2;
+    grid-row: 1 / 6;
+  }
+}
+
+.block.product-details--paid-event .event-summary__header,
+.block.product-details--paid-event .event-summary__tickets-heading {
+  display: none;
+}
+
+.block.product-details--paid-event .event-summary__content {
+  padding-block: 12px;
+  border-top: 0;
+}
+
+.block.product-details--paid-event .event-summary__line {
+  padding-bottom: 12px;
+}
+
+.block.product-details--paid-event .event-summary__total {
+  padding-top: 12px;
+}
+
+.block.product-details--paid-event .event-booking__metadata,
+.block.product-details--paid-event fieldset {
+  border-radius: 4px;
+}
+
+/* Match the event prototype's compact breadcrumb trail. */
+.block.product-details .product-details__breadcrumbs {
+  margin-block: 0 24px;
+  padding-top: 24px;
+  color: #4a4a4a;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.block.product-details .product-details__breadcrumbs + .product-details__alert + .product-details__wrapper {
+  margin-top: 0;
+}
+
+.block.product-details .product-details__breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.block.product-details .product-details__breadcrumbs li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.block.product-details .product-details__breadcrumb-separator {
+  flex: 0 0 auto;
+}
+
+.block.product-details .product-details__breadcrumbs a {
+  color: #0068b1;
+  font-size: inherit;
+  font-weight: inherit;
+  text-decoration: none;
+}
+
+.block.product-details .product-details__breadcrumbs a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.block.product-details .product-details__breadcrumbs a:focus-visible {
+  outline: 2px solid currentcolor;
+  outline-offset: 4px;
+}
+
+
+.block.product-details--event .product-details__event-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  color: #333;
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+.block.product-details--event .product-details__event-facts p {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+}
+
+.block.product-details--event .product-details__event-facts svg {
+  flex: 0 0 20px;
+  margin-top: 2px;
+  color: #0068b1;
+}
+
+.block.product-details--event .product-details__event-facts span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+
+.block.product-details--event .product-details__header .pdp-header__title {
+  color: #002e5a;
+  font-size: clamp(30px, 3vw, 42px);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.block.product-details--event .event-booking__metadata--prototype {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+
+.block.product-details--event .event-booking__metadata--prototype h2 {
+  margin: 0 0 14px;
+  color: #002e5a;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.block.product-details--event .event-booking__metadata--prototype dl {
+  grid-template-columns: minmax(100px, 30%) minmax(0, 1fr);
+  gap: 0;
+  border-top: 1px solid #d8dde2;
+}
+
+.block.product-details--event .event-booking__metadata--prototype dt,
+.block.product-details--event .event-booking__metadata--prototype dd {
+  padding-block: 14px;
+  border-bottom: 1px solid #e4e9ed;
+  color: #333;
+  font-size: 17px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.block.product-details--event .event-booking__metadata--prototype dt {
+  padding-right: 16px;
+  font-weight: 700;
+}
+
+@media (min-width: 900px) {
+  .block.product-details--event .product-details__header { grid-row: 1; }
+  .block.product-details--event .product-details__event-facts { grid-row: 2; }
+  .block.product-details--event .product-details__gallery { grid-row: 3; }
+  .block.product-details--event .product-details__event-information { grid-row: 4; }
+  .block.product-details--event .product-details__event-details { grid-row: 5; }
+}
+
+
+@media (min-width: 900px) {
+  .block.product-details--event .event-booking__metadata--prototype dl {
+    grid-template-columns: 180px minmax(0, 1fr);
+  }
+}
+
+.block.product-details--event .event-booking__price--loading::after {
+  content: '';
+  display: block;
+  width: 150px;
+  height: 20px;
+  margin-top: 8px;
+  border-radius: 4px;
+  background: #edf1f5;
+  animation: event-details-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.block.product-details--event .event-booking__occurrences[aria-busy='true'] select {
+  background-color: #edf1f5;
+}
+
+.block.product-details--event .event-booking__availability-retry {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid #0068b1;
+  border-radius: 4px;
+  background: #fff;
+  color: #0068b1;
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .block.product-details--event .event-booking__price--loading::after {
+    animation: none;
+  }
+}
+
+.block.product-details--event .product-details__event-facts .product-details__event-loading {
+  min-width: 0;
+  width: 100%;
+}
+
+.block.product-details--event .product-details__event-facts .product-details__event-loading-skeleton {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+}
+
+.block.product-details--event .product-details__event-facts .product-details__event-loading-skeleton span {
+  height: 20px;
+  max-width: 480px;
+  width: 100%;
+}
+
+.block.product-details--event .product-details__event-facts .product-details__event-loading-skeleton span:last-child {
+  max-width: 280px;
+}
+
+/* Prototype booking card: selection, attendee cards, and a single action footer. */
+.block.product-details.product-details--paid-event .event-booking-panel {
+  border-color: #d8dde2;
+  box-shadow: 0 2px 6px rgb(0 46 90 / 8%);
+}
+
+.block.product-details--paid-event .event-booking-panel__header {
+  padding: 20px 24px 18px;
+  border-bottom: 1px solid #e4e9ed;
+}
+
+.block.product-details.product-details--paid-event .event-booking-panel__header h2 {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: #002e5a;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.block.product-details--paid-event .event-booking-panel__header h2::after {
+  display: none;
+}
+
+.block.product-details--paid-event .event-booking-panel__date {
+  margin: 6px 0 0;
+  color: #4a4a4a;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.block.product-details--paid-event .event-booking-panel__date:empty {
+  display: none;
+}
+
+.block.product-details.product-details--paid-event .event-booking-accordion__content {
+  padding: 0;
+}
+
+.block.product-details.product-details--paid-event .event-booking-panel .event-booking__form {
+  gap: 0;
+}
+
+.block.product-details.product-details--paid-event .event-booking-panel .event-booking__allocations,
+.block.product-details.product-details--paid-event .event-booking-panel .event-booking__occurrences {
+  display: block;
+  min-width: 0;
+  margin: 0;
+  padding: 20px 24px;
+  border: 0;
+  border-bottom: 1px solid #e4e9ed;
+  border-radius: 0;
+}
+
+.block.product-details.product-details--paid-event .event-booking__allocations legend,
+.block.product-details.product-details--paid-event .event-booking__occurrences legend {
+  float: left;
+  width: 100%;
+  margin: 0 0 18px;
+  padding: 0;
+  color: #002e5a;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.block.product-details.product-details--paid-event .event-booking__allocation-option {
+  display: flex;
+  clear: both;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.block.product-details--paid-event .event-booking__allocation-option:last-child {
+  margin-bottom: 0;
+}
+
+.block.product-details--paid-event .event-booking__ticket-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.block.product-details--paid-event .event-booking__ticket-name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: #002e5a;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.block.product-details--paid-event .event-booking__ticket-name input {
+  flex: 0 0 auto;
+  accent-color: #0068b1;
+}
+
+.block.product-details--paid-event .event-booking__ticket-price {
+  margin: 2px 0 0;
+  color: #4a4a4a;
+  font-size: 16px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.block.product-details--paid-event .event-booking__ticket-price::after {
+  max-width: 100%;
+}
+
+.block.product-details--paid-event .event-booking__ticket-availability {
+  margin: 4px 0 0;
+  color: #9a4a11;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.block.product-details--paid-event .event-booking__ticket-quantity {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: 44px 40px 44px;
+  min-height: 44px;
+  border: 1.5px solid #b7bfc7;
+  border-radius: 4px;
+}
+
+.block.product-details--paid-event .event-booking__ticket-quantity button,
+.block.product-details--paid-event .event-booking__ticket-quantity input {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 40px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  font: inherit;
+  text-align: center;
+}
+
+.block.product-details--paid-event .event-booking__ticket-quantity button {
+  width: 44px;
+  min-height: 44px;
+  color: #0068b1;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.block.product-details--paid-event .event-booking__ticket-quantity input {
+  appearance: textfield;
+  color: #333;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.block.product-details--paid-event .event-booking__ticket-quantity input::-webkit-inner-spin-button,
+.block.product-details--paid-event .event-booking__ticket-quantity input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.block.product-details--paid-event .event-booking__ticket-quantity :disabled {
+  color: #8c97a2;
+  cursor: not-allowed;
+}
+
+.block.product-details--paid-event .event-booking__ticket-quantity :focus-visible {
+  outline: 2px solid #0068b1;
+  outline-offset: -2px;
+}
+
+.block.product-details--paid-event .event-booking__occurrence-field {
+  clear: both;
+  margin-bottom: 12px;
+}
+
+.block.product-details--paid-event .event-booking__attendee-section {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e4e9ed;
+}
+
+.block.product-details--paid-event .event-booking__section-heading {
+  margin: 0 0 16px;
+  color: #002e5a;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.block.product-details.product-details--paid-event .event-booking__attendee {
+  gap: 12px;
+  padding: 14px 16px;
+  border-color: #d8dde2;
+  border-radius: 4px;
+}
+
+.block.product-details.product-details--paid-event .event-booking__attendee legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.block.product-details--paid-event .event-booking__attendee-title {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #4a4a4a;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.block.product-details.product-details--paid-event .event-booking__contact {
+  margin: 20px 24px;
+  padding: 14px 16px;
+  border-color: #d8dde2;
+  border-radius: 4px;
+}
+
+.block.product-details.product-details--paid-event .event-booking__actions {
+  gap: 16px;
+  padding: 20px 24px;
+  border-top: 1px solid #d8dde2;
+}
+
+.block.product-details.product-details--paid-event .event-summary,
+.block.product-details.product-details--paid-event .event-summary__content {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.block.product-details--paid-event .event-summary__prompt {
+  margin: 0;
+  color: #4a4a4a;
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.block.product-details.product-details--paid-event .event-summary__line {
+  margin-bottom: 12px;
+  padding: 0;
+  border: 0;
+  color: #333;
+  font-size: 17px;
+}
+
+.block.product-details.product-details--paid-event .event-summary__total {
+  padding-top: 12px;
+  border-top: 1px solid #e4e9ed;
+  color: #002e5a;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.block.product-details.product-details--paid-event .event-summary__total-value {
+  color: #002e5a;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.block.product-details.product-details--paid-event .event-booking__submit {
+  width: 100%;
+  min-height: 54px;
+  margin: 0;
+  border: 0;
+  border-radius: 4px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.block.product-details.product-details--paid-event .event-booking__submit:disabled {
+  background: #edf1f5;
+  color: #8c97a2;
+  opacity: 1;
+}
+
+.block.product-details--paid-event .event-booking__feedback:not(:empty) {
+  margin: 16px 24px;
+}
+
+.block.product-details--paid-event .event-booking-panel--success {
+  max-height: none;
+}
+
+.block.product-details--paid-event .event-booking-panel--success .event-booking-panel__header {
+  display: none;
+}
+
+.block.product-details.product-details--paid-event .event-booking__success {
+  padding: 24px;
+  border: 0;
+  background: #fff;
+}
+
+.block.product-details.product-details--paid-event .event-booking__success-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 20px;
+  color: #002e5a;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.block.product-details--paid-event .event-booking__success-heading::before {
+  display: inline-flex;
+  flex: 0 0 40px;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  border-radius: 50%;
+  background: #e4f3e8;
+  color: #168344;
+  font-size: 24px;
+  content: '✓';
+}
+
+.block.product-details--paid-event .event-booking__success-summary {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 4px;
+  background: #f4f7fa;
+}
+
+.block.product-details--paid-event .event-booking__success-summary p {
+  margin: 0;
+  color: #333;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.block.product-details--paid-event .event-booking__success-summary .event-booking__success-name {
+  color: #002e5a;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.block.product-details--paid-event .event-booking__success-summary .event-booking__success-subtotal {
+  color: #002e5a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.block.product-details--paid-event .event-booking__success-notice {
+  margin: 20px 0;
+  color: #4a4a4a;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.block.product-details.product-details--paid-event .event-booking__success-links {
+  gap: 12px;
+  margin: 0;
+}
+
+.block.product-details--paid-event .event-booking__success-links a {
+  min-height: 54px;
+  border-width: 1.5px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.block.product-details.product-details--paid-event .event-booking__success-link--browse,
+.block.product-details.product-details--paid-event .event-booking__book-again {
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  color: #0068b1;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.block.product-details--paid-event .event-booking__success:focus-visible {
+  outline: 2px solid #0068b1;
+  outline-offset: -2px;
+}
+
+.block.product-details--paid-event .event-booking__occurrence-field input[type='date'] {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid #c6d2dc;
+  border-radius: 4px;
+  background: #fff;
+  color: #002e5a;
+  font: inherit;
+}
+
+.block.product-details--paid-event .event-booking__occurrence-field input:focus-visible {
+  outline: 2px solid #0068b1;
+  outline-offset: 2px;
+}
+
+.block.product-details.product-details--paid-event .event-booking-panel [hidden] {
+  display: none;
+}

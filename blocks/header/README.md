@@ -91,7 +91,10 @@ The header creates three main sections from the nav fragment:
    - Logout revokes token asynchronously, then either redirects to a specific page or reloads the current page
    - Special redirects on logout: checkout → cart, customer pages → login, order details → home
    - All other pages simply reload to reflect the logged-out state
-3. **User Display**: Dropdown shows "Hi, {firstname}" for authenticated users
+3. **User Display**: Dropdown shows "Hi, {firstname}" and a chevron for authenticated users.
+   The compact menu contains “My account” and “Log out”, with prototype styling.
+   Opening it updates the trigger's expanded state and focuses the account link;
+   Escape closes the menu and returns focus to the trigger.
 
 ### State Management
 

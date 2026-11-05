@@ -46,6 +46,7 @@ import {
   getCartBookingLabels,
   renderCartBookingPanel,
 } from '../../scripts/event-app/cart-display.js';
+import { createCalendarButton } from '../../scripts/event-app/calendar.js';
 
 // ----------------------------------------------------------------------------
 // Local selectors and fragments (order confirmation only)
@@ -223,19 +224,27 @@ function renderBookingInformation(
   const section = document.createElement('section');
   section.className = 'order-confirmation__booking-information-content';
   const heading = document.createElement('h2');
-  heading.textContent = bookingLabels.heading;
+  heading.textContent = labels.Global?.EventYourTicketsHeading || 'Your events';
   section.append(heading);
 
   bookingSummaries.forEach((summary) => {
     if (typeof summary?.sku !== 'string' || !summary.sku) return;
-    section.append(renderCartBookingPanel({
+    const item = orderData?.items?.find((entry) => entry.productSku === summary.sku);
+    const panel = renderCartBookingPanel({
       ...summary,
       quantity: quantitiesBySku.get(summary.sku) ?? summary.quantity,
     }, {
       labels: bookingLabels,
       locale,
       surface: 'confirmation',
-    }));
+    });
+    const name = item?.productName || item?.product?.name;
+    if (name) panel.querySelector('h3').textContent = name;
+    if (summary.correlationStatus === 'linked') {
+      const calendar = createCalendarButton({ ...summary, name }, labels.Global?.EventAddToCalendarLabel || 'Add to calendar');
+      if (calendar) panel.append(calendar);
+    }
+    section.append(panel);
   });
 
   if (section.children.length > 1) container.append(section);
@@ -253,15 +262,15 @@ async function renderOrderGiftOptions(container) {
   })(container);
 }
 
-async function renderOrderConfirmationFooterButton(container) {
+async function renderOrderConfirmationFooterButton(container, eventOrder = false) {
   return UI.render(Button, {
-    children: 'Continue shopping',
+    children: eventOrder ? 'Browse more events' : 'Continue shopping',
     'data-testid': 'order-confirmation-footer__continue-button',
     className: 'order-confirmation-footer__continue-button',
     size: 'medium',
     variant: 'primary',
     type: 'submit',
-    href: rootLink('/'),
+    href: rootLink(eventOrder ? '/events' : '/'),
   })(container);
 }
 
@@ -299,6 +308,8 @@ async function renderCheckoutSuccessContent(
 
   // Mount order drop-in with localized placeholders (and optional order data)
   const labels = await fetchPlaceholders();
+  const eventOrder = bookingSummaries.length > 0;
+  container.classList.toggle('event-order-confirmation', eventOrder);
   const langDefinitions = { default: { ...labels } };
   const initOptions = orderData ? { langDefinitions, orderData } : { langDefinitions };
   await initializers.mountImmediately(orderApi.initialize, initOptions);
@@ -318,13 +329,48 @@ async function renderCheckoutSuccessContent(
     labels,
     orderData,
   });
+  if (eventOrder) {
+    // Keep Commerce's order identifier, account offer, payment status and totals.
+    // Public booking references and ticket delivery are separate contracts.
+    const introduction = document.createElement('section');
+    introduction.className = 'order-confirmation__event-introduction';
+    const title = document.createElement('h1');
+    title.textContent = labels.Global?.EventOrderReceivedHeading || 'We have received your ticket order';
+    const message = document.createElement('p');
+    message.textContent = labels.Global?.EventOrderReceivedMessage
+      || 'Keep your order details below. Booking and ticket processing may still be in progress.';
+    introduction.append(title, message);
+    $orderConfirmationHeader.before(introduction);
+    $orderConfirmationHeader.after($bookingInformation);
+    const nextSteps = document.createElement('section');
+    nextSteps.className = 'order-confirmation__next-steps';
+    const heading = document.createElement('h2');
+    heading.textContent = labels.Global?.EventNextStepsHeading || 'What happens next';
+    const list = document.createElement('ol');
+    [
+      labels.Global?.EventNextStepEmail || 'Watch for your booking and ticket email, and check your junk folder.',
+      labels.Global?.EventNextStepTickets || 'Once your tickets are issued, bring them on your phone or printed to the event.',
+      labels.Global?.EventNextStepHelp || 'Contact support if you need help, quoting the order number below.',
+    ].forEach((text) => {
+      const item = document.createElement('li');
+      item.textContent = text;
+      list.append(item);
+    });
+    nextSteps.append(heading, list);
+    $orderStatus.after(nextSteps);
+    const eventSkus = new Set(bookingSummaries.map((summary) => summary.sku));
+    if (orderData?.items?.length
+      && orderData.items.every((item) => eventSkus.has(item.productSku))) {
+      $shippingStatus.hidden = true;
+    }
+  }
 
   // Footer content and continue button
   $orderConfirmationFooter.innerHTML = createOrderConfirmationFooter(rootLink(SUPPORT_PATH));
   const $continueBtn = $orderConfirmationFooter.querySelector(
     selectors.orderConfirmation.continueButton,
   );
-  await renderOrderConfirmationFooterButton($continueBtn);
+  await renderOrderConfirmationFooterButton($continueBtn, eventOrder);
 }
 
 export function preloadCheckoutSuccess() {
