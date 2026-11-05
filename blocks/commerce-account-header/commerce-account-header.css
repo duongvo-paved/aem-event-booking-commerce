@@ -1,3 +1,43 @@
 body.columns main > .section > div.commerce-account-header-wrapper {
     margin-bottom: 0;
 }
+
+.commerce-account-header {
+    padding: 0;
+    color: #102e5a;
+    text-align: left;
+}
+
+.commerce-account-header h1 {
+    margin: 0;
+    color: #102e5a;
+    font-size: 34px;
+    font-weight: 700;
+    line-height: 42px;
+    letter-spacing: normal;
+}
+
+body.columns main.account-page > .account-page-title {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: none;
+    padding: 0 0 32px;
+}
+
+body.columns main.account-page > .section:not(.account-page-title) {
+    padding-block-start: 0;
+}
+
+body.columns main.account-page > .commerce-account-sidebar-container {
+    padding-inline-start: 0;
+}
+
+.account-page .dropin-header-container__title {
+    margin: 0;
+    color: #102e5a;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 28px;
+    letter-spacing: normal;
+    text-align: left;
+}

@@ -1,1 +1,269 @@
-/* stylelint-disable no-empty-source */
+.commerce-orders-list {
+  min-width: 0;
+  color: var(--color-neutral-800);
+}
+
+.commerce-orders-list .account-orders-list-card {
+  margin-block: var(--spacing-small);
+  padding: var(--spacing-medium);
+  border: 1px solid var(--color-neutral-400);
+  border-radius: 4px;
+  background: var(--color-neutral-50);
+  box-shadow: 0 2px 8px rgb(0 46 90 / 5%);
+}
+
+.commerce-orders-list .account-orders-list-card__content--product-name {
+  color: var(--color-brand-700);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.commerce-orders-list .account-orders-list-action {
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--color-brand-500);
+}
+
+.commerce-orders-list a:focus-visible,
+.commerce-orders-list button:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 3px;
+}
+
+@media (max-width: 599px) {
+  .commerce-orders-list .account-orders-list-card {
+    padding: var(--spacing-small);
+  }
+}
+
+.commerce-orders-list--upcoming .upcoming-bookings__heading {
+  margin: 0 0 18px;
+  color: #102e5a;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 28px;
+}
+
+.upcoming-bookings__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.upcoming-booking--skeleton {
+  border-top: 1px solid var(--color-neutral-400);
+}
+
+.upcoming-booking__skeleton-image {
+  display: block;
+  width: 100%;
+  height: 84px;
+  border-radius: 3px;
+  background: #edf1f5;
+}
+
+.upcoming-booking__skeleton-content {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.upcoming-booking__skeleton-line {
+  display: block;
+  width: min(72%, 360px);
+  height: 14px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #edf1f5 25%, #f6f8fa 50%, #edf1f5 75%);
+  background-size: 200% 100%;
+  animation: upcoming-booking-shimmer 1.4s ease-in-out infinite;
+}
+
+.upcoming-booking__skeleton-line--1 {
+  width: min(48%, 260px);
+  height: 20px;
+}
+
+.upcoming-booking__skeleton-line--2 { width: min(58%, 320px); }
+.upcoming-booking__skeleton-line--3 { width: min(66%, 360px); }
+.upcoming-booking__skeleton-line--4 { width: min(42%, 240px); }
+
+@keyframes upcoming-booking-shimmer {
+  to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upcoming-booking__skeleton-line { animation: none; }
+}
+
+.upcoming-bookings__empty {
+  box-sizing: border-box;
+  padding: 24px;
+  border: 1px solid #d8dde2;
+  border-radius: 3px;
+  background: #f4f7fa;
+}
+
+.upcoming-bookings__empty-title {
+  margin: 0 0 8px;
+  color: #102e5a;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
+.upcoming-bookings__empty-description {
+  max-width: 400px;
+  margin: 0;
+  color: #333;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.upcoming-booking {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 16px;
+  padding-block: 20px;
+  border-top: 1px solid var(--color-neutral-400);
+}
+
+.upcoming-booking__thumbnail {
+  height: 84px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #ecf0f3;
+}
+
+.upcoming-booking__thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.upcoming-booking__name {
+  margin: 0 0 6px;
+  color: #102e5a;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 24px;
+  overflow-wrap: anywhere;
+}
+
+.commerce-orders-list .upcoming-booking__content p {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.upcoming-booking__content p > svg {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  color: var(--color-brand-500);
+}
+
+/* The installed OrdersList has no option to disable its return references. */
+.commerce-orders-list p:has(.account-orders-list-card__content--return_number) {
+  display: none;
+}
+
+.upcoming-booking__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.commerce-orders-list .upcoming-booking__details,
+.commerce-orders-list .event-calendar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  margin: 0;
+  padding: 8px 16px;
+  border: 1px solid var(--color-brand-500);
+  border-radius: 3px;
+  background: var(--color-neutral-50);
+  color: #102e5a;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.commerce-orders-list .event-calendar-button {
+  border-color: var(--color-neutral-400);
+}
+
+.upcoming-bookings__all-orders {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 8px;
+}
+
+@media (min-width: 600px) {
+  .upcoming-booking {
+    grid-template-columns: 130px minmax(0, 1fr);
+    gap: 18px;
+  }
+}
+
+@media (max-width: 399px) {
+  .upcoming-booking {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .upcoming-booking__thumbnail {
+    width: 130px;
+  }
+}
+
+.commerce-orders-list--history .account-orders-list-card {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.commerce-orders-list--history .account-orders-list-card .dropin-card__content {
+  display: block;
+  padding: 0;
+}
+
+.commerce-orders-list--history .account-orders-list-card__content {
+  display: block;
+  min-width: 0;
+}
+
+.commerce-orders-list--history .account-orders-list-card__actions {
+  display: none;
+}
+
+.commerce-orders-list--history .account-orders-list-card .upcoming-booking__content {
+  margin: 0;
+}
+
+.commerce-orders-list--history .account-orders-list-card .upcoming-booking__actions {
+  margin: 12px 0 0;
+}
+
+.commerce-orders-list--history .order-booking-summary__notice {
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 22px;
+  overflow-wrap: anywhere;
+}

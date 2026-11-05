@@ -11,7 +11,7 @@ import { WishlistToggle } from '@dropins/storefront-wishlist/containers/Wishlist
 import { render as wishlistRender } from '@dropins/storefront-wishlist/render.js';
 // Cart Dropin
 import * as cartApi from '@dropins/storefront-cart/api.js';
-import { tryRenderAemAssetsImage } from '@dropins/tools/lib/aem/assets.js';
+import { isAemAssetsEnabled, tryRenderAemAssetsImage } from '@dropins/tools/lib/aem/assets.js';
 // Event Bus
 import { events } from '@dropins/tools/event-bus.js';
 // AEM
@@ -19,7 +19,7 @@ import { readBlockConfig } from '../../scripts/aem.js';
 import { fetchPlaceholders, getProductLink } from '../../scripts/commerce.js';
 import { getSearchStateFromUrl, applySearchStateToUrl } from './search-url.js';
 import { createEventAppClient } from '../../scripts/event-app/client.js';
-import { formatEventDateRange } from '../../scripts/event-app/dates.js';
+import { renderEventCardMetadata } from '../../scripts/event-app/card-metadata.js';
 import {
   getExternalEventId,
   isEventProduct,
@@ -30,6 +30,14 @@ import '../../scripts/initializers/search.js';
 import '../../scripts/initializers/wishlist.js';
 
 const HIDDEN_FILTER_ATTRIBUTES = new Set(['categoryPath', 'inStock', 'visibility']);
+
+export function isFreeProduct(product) {
+  if (product.priceRange) {
+    return product.priceRange.minimum?.final?.amount?.value === 0
+      && product.priceRange.maximum?.final?.amount?.value === 0;
+  }
+  return product.price?.final?.amount?.value === 0;
+}
 
 export default async function decorate(block) {
   const labels = await fetchPlaceholders();
@@ -54,10 +62,29 @@ export default async function decorate(block) {
   const $resultInfo = fragment.querySelector('.search__result-info');
   const $viewFacets = fragment.querySelector('.search__view-facets');
   const $facets = fragment.querySelector('.search__facets');
+  const filterHeader = document.createElement('div');
+  filterHeader.className = 'search__facets-header';
+  const filterHeading = document.createElement('h2');
+  filterHeading.className = 'search__facets-heading';
+  filterHeading.tabIndex = -1;
+  filterHeading.textContent = labels.Global?.Filter || 'Filter';
+  filterHeader.append(filterHeading);
+  const facetControls = document.createElement('div');
+  $facets.append(filterHeader, facetControls);
+  const appliedFilters = document.createElement('div');
+  appliedFilters.className = 'search__applied-filters';
+  appliedFilters.hidden = true;
+  fragment.querySelector('.search__wrapper').prepend(appliedFilters);
   const $productSort = fragment.querySelector('.search__product-sort');
   const $productList = fragment.querySelector('.search__product-list');
   const $eventStatus = fragment.querySelector('.search__event-status');
   const $pagination = fragment.querySelector('.search__pagination');
+  $pagination.setAttribute('role', 'navigation');
+  $pagination.setAttribute('aria-label', 'Pagination');
+  const toolbar = document.createElement('div');
+  toolbar.className = 'search__toolbar';
+  toolbar.append($resultInfo, $productSort);
+  fragment.querySelector('.search__wrapper').insertBefore(toolbar, $productList);
 
   block.innerHTML = '';
   block.appendChild(fragment);
@@ -69,12 +96,94 @@ export default async function decorate(block) {
   }
 
   const searchState = getSearchStateFromUrl(new URL(window.location.href));
+  let currentRequest = searchState;
 
   // Default visibility filter for all of our requests
   const visibilityFilter = { attribute: 'visibility', in: ['Search', 'Catalog, Search'] };
   const inStockFilter = { attribute: 'inStock', eq: 'true' };
   const userFilters = searchState.filter
     .filter((filter) => !HIDDEN_FILTER_ATTRIBUTES.has(filter.attribute));
+
+  const searchWithState = (state) => search({
+    ...state,
+    pageSize,
+    phrase: config.urlpath ? '' : state.phrase,
+    filter: [
+      ...(config.urlpath ? [{ attribute: 'categoryPath', eq: config.urlpath }] : []),
+      visibilityFilter,
+      inStockFilter,
+      ...(state.filter || []).filter((filter) => !HIDDEN_FILTER_ATTRIBUTES.has(filter.attribute)),
+    ],
+  });
+  const updateFilters = (filter) => {
+    $eventStatus.textContent = '';
+    searchWithState({ ...currentRequest, currentPage: 1, filter }).catch(() => {
+      $eventStatus.textContent = labels.Global?.SearchError
+        || 'Could not update events. Please try again.';
+    });
+  };
+
+  function renderAppliedFilters(request, facets = []) {
+    const restoreFocus = appliedFilters.contains(document.activeElement);
+    const filters = (request.filter || [])
+      .filter((filter) => !HIDDEN_FILTER_ATTRIBUTES.has(filter.attribute));
+    appliedFilters.replaceChildren();
+    appliedFilters.hidden = filters.length === 0;
+    if (filters.length === 0) {
+      if (restoreFocus) filterHeading.focus();
+      return;
+    }
+
+    const caption = document.createElement('span');
+    caption.className = 'search__applied-label';
+    caption.textContent = labels.Global?.FilteredBy || 'Filtered by';
+    appliedFilters.append(caption);
+    filters.forEach((filter) => {
+      const facet = facets.find((item) => item.attribute === filter.attribute);
+      const values = filter.in
+        || [filter.eq ?? filter.contains ?? filter.startsWith ?? filter.range];
+      values.forEach((value) => {
+        const bucket = facet?.buckets.find((item) => (filter.range
+          ? item.from === filter.range.from && item.to === filter.range.to
+          : item.title === value));
+        const title = bucket?.title || (filter.range
+          ? `${filter.range.from}–${filter.range.to}` : String(value));
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'search__filter-chip';
+        chip.setAttribute('aria-label', `Remove ${facet?.title || filter.attribute} filter: ${title}`);
+        const text = document.createElement('span');
+        text.textContent = title;
+        const remove = document.createElement('span');
+        remove.textContent = '×';
+        remove.setAttribute('aria-hidden', 'true');
+        chip.append(text, remove);
+        chip.addEventListener('click', () => {
+          const remaining = (currentRequest.filter || []).flatMap((item) => {
+            if (item.attribute !== filter.attribute) return [item];
+            if (!item.in) return [];
+            const nextValues = item.in.filter((entry) => entry !== value);
+            return nextValues.length ? [{ ...item, in: nextValues }] : [];
+          });
+          updateFilters(remaining);
+        });
+        appliedFilters.append(chip);
+      });
+    });
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'search__clear-filters';
+    clear.textContent = labels.Search?.Facet?.clearAll || 'Clear all';
+    clear.addEventListener('click', () => updateFilters([]));
+    appliedFilters.append(clear);
+    if (restoreFocus) appliedFilters.querySelector('button').focus();
+  }
+  window.addEventListener('popstate', () => {
+    searchWithState(getSearchStateFromUrl(new URL(window.location.href))).catch(() => {
+      $eventStatus.textContent = labels.Global?.SearchError
+        || 'Could not update events. Please try again.';
+    });
+  });
 
   // Normalize URL (e.g. pipe-separated filter values)
   const normalizedUrl = new URL(window.location.href);
@@ -141,39 +250,7 @@ export default async function decorate(block) {
       const { eventId } = metadata.dataset;
       if (!expectedIds.has(eventId)) return;
 
-      metadata.replaceChildren();
-      metadata.setAttribute('aria-busy', 'false');
-      const event = eventMap.get(eventId);
-      if (!event) {
-        metadata.textContent = labels.Global?.EventDetailsUnavailable
-          || 'Event details unavailable';
-        metadata.classList.add('event-card-metadata--unavailable');
-        metadata.removeAttribute('hidden');
-        return;
-      }
-
-      const schedule = event.startsAtUtc
-        ? document.createElement('span')
-        : null;
-      if (schedule) {
-        schedule.className = 'event-card-metadata__schedule';
-        schedule.textContent = formatEventDateRange(event);
-      }
-
-      const venue = document.createElement('span');
-      venue.className = 'event-card-metadata__venue';
-      venue.textContent = `${event.venue.name}, ${event.venue.address}`;
-
-      metadata.classList.remove('event-card-metadata--unavailable');
-      if (schedule) metadata.append(schedule);
-      metadata.append(venue);
-      if (event.organizer) {
-        const organizer = document.createElement('span');
-        organizer.className = 'event-card-metadata__organizer';
-        organizer.textContent = event.organizer;
-        metadata.append(organizer);
-      }
-      metadata.removeAttribute('hidden');
+      renderEventCardMetadata(metadata, eventMap.get(eventId), labels);
     });
   }
 
@@ -225,7 +302,15 @@ export default async function decorate(block) {
     })($viewFacets),
 
     // Facets
-    provider.render(Facets, {})($facets),
+    provider.render(Facets, {
+      slots: {
+        SelectedFacets: (ctx) => {
+          const placeholder = document.createElement('span');
+          placeholder.hidden = true;
+          ctx.replaceWith(placeholder);
+        },
+      },
+    })(facetControls),
     // Product List
     provider.render(SearchResults, {
       imageWidth: 400,
@@ -249,15 +334,49 @@ export default async function decorate(block) {
             },
           };
 
-          tryRenderAemAssetsImage(ctx, {
-            alias: product.sku,
-            imageProps,
-            wrapper: anchorWrapper,
-            params: {
-              width: 400,
-              height: 250,
-            },
-          });
+          if (!isAemAssetsEnabled() && !product.images?.some((image) => image.url)) {
+            anchorWrapper.className = 'event-card-image-placeholder';
+            anchorWrapper.setAttribute('aria-label', `View ${product.name}`);
+            ctx.replaceWith(anchorWrapper);
+          } else {
+            tryRenderAemAssetsImage(ctx, {
+              alias: product.sku,
+              imageProps,
+              wrapper: anchorWrapper,
+              params: {
+                width: 400,
+                height: 250,
+              },
+            });
+          }
+
+          const wishlist = document.createElement('div');
+          wishlist.className = 'event-card-wishlist';
+          wishlistRender.render(WishlistToggle, {
+            product,
+            variant: 'tertiary',
+          })(wishlist);
+          ctx.appendSibling(wishlist);
+          if (isEventProduct(product) && isFreeProduct(product)) {
+            const badge = document.createElement('span');
+            badge.className = 'event-card-free-badge';
+            badge.textContent = 'FREE';
+            ctx.appendSibling(badge);
+          }
+        },
+        ProductPrice: (ctx) => {
+          if (!isEventProduct(ctx.product)) return;
+          const minimum = ctx.product.priceRange?.minimum?.final?.amount
+            || ctx.product.price?.final?.amount;
+          if (!minimum || !Number.isFinite(minimum.value) || !minimum.currency) return;
+          const price = document.createElement('span');
+          price.className = isFreeProduct(ctx.product) ? 'event-card-free-price' : 'event-card-minimum-price';
+          price.textContent = minimum.value === 0
+            ? labels.Global?.Free || 'Free'
+            : new Intl.NumberFormat(document.documentElement.lang || 'en-US', {
+              style: 'currency', currency: minimum.currency,
+            }).format(minimum.value);
+          ctx.replaceWith(price);
         },
         ProductActions: (ctx) => {
           const actionsWrapper = document.createElement('div');
@@ -265,15 +384,7 @@ export default async function decorate(block) {
           // Add to Cart Button
           const addToCartBtn = getAddToCartButton(ctx.product);
           addToCartBtn.className = 'product-discovery-product-actions__add-to-cart';
-          // Wishlist Button
-          const $wishlistToggle = document.createElement('div');
-          $wishlistToggle.classList.add('product-discovery-product-actions__wishlist-toggle');
-          wishlistRender.render(WishlistToggle, {
-            product: ctx.product,
-            variant: 'tertiary',
-          })($wishlistToggle);
           actionsWrapper.appendChild(addToCartBtn);
-          actionsWrapper.appendChild($wishlistToggle);
           ctx.replaceWith(actionsWrapper);
         },
         ProductName: (ctx) => {
@@ -309,13 +420,21 @@ export default async function decorate(block) {
   // Listen for search results (event is fired before the block is rendered; eager: true)
   events.on('search/result', (payload) => {
     const totalCount = payload.result?.totalCount || 0;
+    currentRequest = payload.request;
+    renderAppliedFilters(currentRequest, payload.result?.facets);
 
     block.classList.toggle('product-list-page--empty', totalCount === 0);
 
     // Results Info
-    $resultInfo.innerHTML = payload.request?.phrase
-      ? `${totalCount} results found for <strong>"${payload.request.phrase}"</strong>.`
-      : `${totalCount} results found.`;
+    const page = payload.result?.pageInfo?.currentPage || payload.request.currentPage || 1;
+    const size = payload.result?.pageInfo?.pageSize || payload.request.pageSize || pageSize;
+    const start = totalCount ? (page - 1) * size + 1 : 0;
+    const end = Math.min(start + (payload.result?.items?.length || 0) - 1, totalCount);
+    const range = document.createElement('strong');
+    range.textContent = `${start}–${Math.max(0, end)}`;
+    const total = document.createElement('strong');
+    total.textContent = totalCount;
+    $resultInfo.replaceChildren('Showing ', range, ' of ', total, ' events');
 
     // Update the view facets button with the number of filters
     const visibleFilterCount = payload.request.filter
@@ -332,6 +451,8 @@ export default async function decorate(block) {
   events.on('search/result', (payload) => {
     const url = new URL(window.location.href);
     applySearchStateToUrl(url, payload.request);
-    window.history.pushState({}, '', url.toString());
+    if (url.toString() !== window.location.href) {
+      window.history.pushState({}, '', url.toString());
+    }
   }, { eager: false });
 }

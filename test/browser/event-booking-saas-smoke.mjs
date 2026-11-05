@@ -301,7 +301,6 @@ const availabilityStates = await evaluate(`(() => {
       submitDisabled: document.querySelector('.event-booking__submit').disabled,
     },
     loading,
-    retryAllocation: window.__bookingTest.allocationChanges[0],
   };
 })()`);
 assert.equal(availabilityStates.loading.dateDisabled, true);
@@ -380,12 +379,12 @@ await evaluate(
   'document.querySelector(\'.event-booking__form\').requestSubmit()',
 );
 await waitFor('window.__bookingTest.retryCalls.length === 2');
-await waitFor(`document.querySelector('.event-booking__feedback')
-  .innerText.includes('added to your cart')`);
+await waitFor(`document.querySelector('.event-booking__success')
+  .innerText.toLowerCase().includes('added to your cart')`);
 
 report.retrySuccess = await evaluate(`({
   callCount: window.__bookingTest.retryCalls.length,
-  feedback: document.querySelector('.event-booking__feedback').innerText.trim(),
+  feedback: document.querySelector('.event-booking__success-heading').innerText.trim(),
   formCleared: document.querySelector('[name="contact-email"]').value === '',
   formVisible: document.querySelector('.event-booking__form')?.hidden === false,
   sourceRequestIdReused:
@@ -615,9 +614,9 @@ assert.equal(report.retryFailure.emailRetained, true);
 assert.match(report.retryFailure.feedback, /temporarily unavailable/i);
 assert.deepEqual(report.retrySuccess, {
   callCount: 2,
-  feedback: 'The event tickets were added to your cart.',
+  feedback: 'Added to your cart',
   formCleared: true,
-  formVisible: true,
+  formVisible: false,
   sourceRequestIdReused: true,
 });
 const popupAssertions = { ...report.popup };

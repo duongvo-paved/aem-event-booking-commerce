@@ -1,1 +1,93 @@
-/* stylelint-disable no-empty-source */
+.commerce-customer-information .my-details__heading {
+  margin: 0 0 18px;
+  color: #102e5a;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 28px;
+  letter-spacing: normal;
+}
+
+.commerce-customer-information .account-customer-information-card {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 24px 22px;
+  border: 1px solid #d8dde2;
+  border-radius: 3px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.commerce-customer-information .account-customer-information-card__wrapper {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.commerce-customer-information .account-customer-information-card > .dropin-card__content {
+  padding: 0;
+}
+
+.commerce-customer-information .account-customer-information-card__content {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.commerce-customer-information .account-customer-information-card__content .my-details__name {
+  float: none;
+  margin: 0 0 6px;
+  color: #102e5a;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+  overflow-wrap: anywhere;
+}
+
+.commerce-customer-information .account-customer-information-card__content .my-details__email {
+  float: none;
+  margin: 0;
+  color: #333;
+  font-size: 14px;
+  line-height: 22px;
+  overflow-wrap: anywhere;
+}
+
+.commerce-customer-information .account-customer-information-card__actions {
+  display: flex;
+  flex-flow: row-reverse wrap;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 18px;
+  margin: 0;
+}
+
+.commerce-customer-information .account-customer-information-card__actions button {
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-brand-500);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 24px;
+  text-decoration: underline;
+  white-space: normal;
+}
+
+.commerce-customer-information .account-customer-information-card__actions button:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 3px;
+}
+
+@media (min-width: 600px) {
+  .commerce-customer-information .account-customer-information-card__wrapper {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 24px;
+  }
+
+  .commerce-customer-information .account-customer-information-card__actions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}

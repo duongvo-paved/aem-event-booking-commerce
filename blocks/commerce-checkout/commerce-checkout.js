@@ -66,8 +66,10 @@ import {
   TERMS_AND_CONDITIONS_FORM_NAME,
 } from './constants.js';
 
-import { rootLink } from '../../scripts/commerce.js';
+import { CS_FETCH_GRAPHQL, rootLink } from '../../scripts/commerce.js';
 import { createEventAppClient } from '../../scripts/event-app/client.js';
+import { getExternalEventId } from '../../scripts/event-app/models.js';
+import { loadEventProductIndex } from '../../scripts/event-app/cart-product-links.js';
 import { getEventCartLines } from '../../scripts/event-app/cart.js';
 import {
   createCheckoutBookingSnapshot,
@@ -79,6 +81,7 @@ import '../../scripts/initializers/cart.js';
 import '../../scripts/initializers/checkout.js';
 import '../../scripts/initializers/order.js';
 import '../../scripts/initializers/payment-services.js';
+import { observeAddressPickerLabels } from './address-picker-labels.js';
 
 // Checkout success block import and CSS preload
 import { renderCheckoutSuccess, preloadCheckoutSuccess } from '../commerce-checkout-success/commerce-checkout-success.js';
@@ -100,11 +103,24 @@ export default async function decorate(block) {
   const cartData = events.lastPayload('cart/initialized');
   redirectToCartIfEmpty(cartData);
   const eventClient = createEventAppClient();
+  let eventProductIndexRequest;
+  async function resolveEventId(item) {
+    const eventId = getExternalEventId({ attributes: item.productAttributes });
+    if (eventId) return eventId;
+
+    eventProductIndexRequest ||= loadEventProductIndex(CS_FETCH_GRAPHQL);
+    const productIndex = await eventProductIndexRequest;
+    const parentProduct = productIndex.get(item.sku);
+    return getExternalEventId(parentProduct);
+  }
+
   const bookingSnapshot = createCheckoutBookingSnapshot({
     enrichEvents: (eventIds) => eventClient.enrich(eventIds),
     fetchCartLines: (cartId) => getEventCartLines(cartApi.fetchGraphQl, cartId),
+    resolveEventId,
   });
-  bookingSnapshot.update(cartData);
+  let bookingSnapshotReady = bookingSnapshot.update(cartData)
+    .then(() => bookingSnapshot.getSummaries());
 
   // Container and component references
   let shippingForm;
@@ -148,6 +164,10 @@ export default async function decorate(block) {
   const $termsAndConditions = getElement(selectors.checkout.termsAndConditions);
 
   block.appendChild(checkoutFragment);
+  const stopObservingPickerLabels = observeAddressPickerLabels(
+    block.querySelector(selectors.checkout.main),
+  );
+  events.on('order/placed', stopObservingPickerLabels);
 
   const handleValidation = () => validateForms([
     { name: LOGIN_FORM_NAME },
@@ -323,14 +343,20 @@ export default async function decorate(block) {
 
     window.history.pushState({}, '', url);
 
+    // Booking summaries are enriched asynchronously from the cart. Wait for the
+    // latest cart snapshot before rendering confirmation so event date and venue
+    // details are not lost when order/placed arrives during that request.
+    const bookingSummaries = await bookingSnapshotReady;
+
     await renderCheckoutSuccess(block, {
-      bookingSummaries: bookingSnapshot.getSummaries(),
+      bookingSummaries,
       orderData,
     });
   }
 
   function handleCartBookingData(data) {
-    bookingSnapshot.update(data);
+    bookingSnapshotReady = bookingSnapshot.update(data)
+      .then(() => bookingSnapshot.getSummaries());
   }
 
   events.on('authenticated', handleAuthenticated);

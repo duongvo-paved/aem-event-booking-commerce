@@ -6,9 +6,16 @@ import { tryRenderAemAssetsImage } from '@dropins/tools/lib/aem/assets.js';
 
 // Initialize
 import '../../scripts/initializers/order.js';
-import { getProductLink, rootLink } from '../../scripts/commerce.js';
+import { CUSTOMER_ORDER_DETAILS_PATH, getProductLink, rootLink } from '../../scripts/commerce.js';
 
 export default async function decorate(block) {
+  const accountOrderPath = new URL(rootLink(CUSTOMER_ORDER_DETAILS_PATH), window.location.origin)
+    .pathname;
+  if (window.location.pathname.replace(/\/$/, '') === accountOrderPath) {
+    const { default: renderAccountLineItems } = await import('./account-line-items.js');
+    await renderAccountLineItems(block);
+    return;
+  }
   const createProductLink = (productData) => {
     if (!productData) {
       return rootLink('#');

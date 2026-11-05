@@ -2,6 +2,7 @@ import { events } from '@dropins/tools/event-bus.js';
 import { initializers } from '@dropins/tools/initializer.js';
 import { initialize, setEndpoint } from '@dropins/storefront-order/api.js';
 import { initializeDropin } from './index.js';
+import { getCheckoutSuccess } from '../checkout-success-dev.js';
 import {
   CORE_FETCH_GRAPHQL,
   fetchPlaceholders,
@@ -41,6 +42,15 @@ await initializeDropin(async () => {
       ...labels,
     },
   };
+
+  const confirmation = getCheckoutSuccess();
+  if (confirmation && pathname === ORDER_DETAILS_PATH) {
+    await initializers.mountImmediately(initialize, {
+      langDefinitions,
+      orderData: confirmation.orderData,
+    });
+    return;
+  }
 
   const pathsRequiringRedirects = [
     ORDER_DETAILS_PATH,

@@ -1,6 +1,3 @@
-// eslint-disable-next-line import/no-unresolved
-import { createFragment } from '@dropins/storefront-checkout/lib/utils.js';
-
 import { CHECKOUT_BLOCK } from './constants.js';
 
 /**
@@ -35,35 +32,48 @@ export const selectors = Object.freeze({
 // CHECKOUT
 // =============================================================================
 
+export function createPlaceOrderContent(container) {
+  const existing = container.querySelector('.checkout__place-order-live');
+  if (existing) return existing;
+  const button = document.createElement('button');
+  button.className = 'checkout__place-order-pending';
+  button.type = 'button';
+  button.disabled = true;
+  button.textContent = 'Place order';
+  const live = document.createElement('div');
+  live.className = 'checkout__place-order-live';
+  container.append(button, live);
+  return live;
+}
+
 /**
  * Creates the main checkout fragment with all checkout blocks.
  * @returns {DocumentFragment} The complete checkout fragment.
  */
 export function createCheckoutFragment() {
-  return createFragment(`
-    <div class="checkout__wrapper">
-      <div class="checkout__loader"></div>
-      <div class="checkout__content">
-        <div class="checkout__merged-cart-banner"></div>
-        <div class="checkout__main">
-          <div class="checkout__heading ${CHECKOUT_BLOCK}"></div>
-          <div class="checkout__server-error ${CHECKOUT_BLOCK}"></div>
-          <div class="checkout__out-of-stock ${CHECKOUT_BLOCK}"></div>
-          <div class="checkout__login ${CHECKOUT_BLOCK}"></div>
-          <div class="checkout__shipping-form ${CHECKOUT_BLOCK}"></div>
-          <div class="checkout__bill-to-shipping ${CHECKOUT_BLOCK}"></div>
-          <div class="checkout__delivery ${CHECKOUT_BLOCK}"></div>
-          <div class="checkout__payment-methods ${CHECKOUT_BLOCK}"></div>
-          <div class="checkout__billing-form ${CHECKOUT_BLOCK}"></div>
-          <div class="checkout__terms-and-conditions ${CHECKOUT_BLOCK}"></div>
-          <div class="checkout__place-order ${CHECKOUT_BLOCK}"></div>
-        </div>
-        <div class="checkout__aside">
-          <div class="checkout__order-summary ${CHECKOUT_BLOCK}"></div>
-          <div class="checkout__gift-options ${CHECKOUT_BLOCK}"></div>
-          <div class="checkout__cart-summary ${CHECKOUT_BLOCK}"></div>
-        </div>
-      </div>
-    </div>
-  `);
+  const fragment = document.createDocumentFragment();
+  const create = (className, parent, isBlock = false) => {
+    const element = document.createElement('div');
+    element.className = isBlock ? `${className} ${CHECKOUT_BLOCK}` : className;
+    parent.append(element);
+    return element;
+  };
+  const wrapper = create('checkout__wrapper', fragment);
+  create('checkout__loader', wrapper);
+  const content = create('checkout__content', wrapper);
+  create('checkout__merged-cart-banner', content);
+  create('checkout__heading', content, true);
+  const main = create('checkout__main', content);
+  [
+    'server-error', 'out-of-stock', 'login', 'shipping-form',
+    'bill-to-shipping', 'delivery', 'payment-methods', 'billing-form',
+  ].forEach((name) => create(`checkout__${name}`, main, true));
+  const aside = create('checkout__aside', content);
+  const summary = create('checkout__summary-card', aside);
+  create('checkout__order-summary', summary, true);
+  createPlaceOrderContent(create('checkout__place-order', summary, true));
+  create('checkout__terms-and-conditions', summary, true);
+  create('checkout__gift-options', aside, true);
+  create('checkout__cart-summary', aside, true);
+  return fragment;
 }

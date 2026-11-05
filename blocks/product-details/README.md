@@ -17,6 +17,26 @@ actual selected session after refresh.
 
 ## Integration
 
+### Booking panel presentation
+
+Event quantity, space/session choice, booking contact, attendee names, consent,
+ticket summary and Add to cart are collected in one panel. Contact, attendees and
+consent appear after quantity becomes positive. Existing booking validation and
+Commerce salability remain authoritative; this UI does not introduce ticket types
+or remove contract-required fields.
+
+The selected allocation/session shows “Few tickets left” when its supplied
+available quantity is between 1 and 5. Unknown/loading/error availability does
+not show a low-stock claim. The threshold is a presentation default, not a limit
+on tickets or an inventory calculation.
+
+After a successful paid add, a white success card replaces the booking header and
+form, with a green check, pale-grey booked-event summary, attendee names, ticket
+subtotal and checkout/cart/browse links. This state exists only for the current
+page visit and excludes contact details and internal booking references. The
+payment reminder remains explicit. Book more tickets restores the reset form;
+failures retain the form for retry.
+
 <!-- ### Block Configuration
 
 No block configuration is read via `readBlockConfig()`. The block uses dynamic product data and URL parameters. -->
@@ -41,8 +61,9 @@ No localStorage keys are used by this block. -->
 - `events.on('cart/data', callback)` - Listens for cart data changes to determine update mode
 - `events.on('aem/lcp', callback)` - Listens for AEM LCP event to set JSON-LD and meta tags
 
-`ProductQuantity.onValue` is used for event quantity changes. No unverified custom
-PDP event or slot is introduced.
+Paid events use native allocation-row steppers and synchronize quantity with the
+PDP configuration. Free events retain `ProductQuantity.onValue`. No custom PDP
+event or slot is introduced.
 
 <!-- #### Event Emitters
 
@@ -98,21 +119,19 @@ without that snapshot show the recurring date range, daily availability hours,
 and session duration instead of guessing a selected session.
 10. Event products do not use PDP cart-update mode; cart attendee editing remains
    gated on the separate replacement-intent contract.
-11. Event details remain visible and the booking form is rendered in a native accordion
-   below them. The accordion is expanded by default and moves between desktop/mobile
-   event-detail mounts without duplicating form state.
-12. The event-only quantity selector is rendered inside the booking form, starts at
-    zero, is labeled “Number of attendees,” uses a compact right-aligned width, and keeps the incrementer border around
-    all controls. Its value controls attendee count and the live ticket summary; Add
-    to Cart remains disabled until at least one ticket is selected.
-13. The event summary is a collapsible, expanded-by-default pre-cart preview showing
-    ticket count, unit price, and total. It appears below the product description at
-    every responsive breakpoint.
-14. Consent and Add to Cart render below the Summary while remaining associated with
-   the accordion form; the cart action includes the default cart icon and keeps the
-   wishlist action beside it. Successful bookings close the accordion and render the
-   localized success message below Summary, reset the PDP quantity to zero, and keep
-   the message until dismissed.
+11. Paid bookings use one always-open panel; free events retain the native
+    accordion. One form is shared across desktop, tablet and mobile layouts.
+12. Paid allocation rows display the actual Space/Zone name, exact child price,
+    known low-stock warning and a native quantity stepper. Only the selected
+    allocation can have a nonzero quantity. Changing allocation resets quantity and
+    attendee drafts while retaining contact details.
+13. The zero-ticket footer displays a prompt and disabled button. Selecting tickets
+    reveals one Ticket card per attendee under Who’s going, then required contact
+    fields and the non-collapsible ticket subtotal, consent and cart action.
+14. The panel date subtitle follows the selected recurring session, even before
+    choosing a space. Success
+    replaces the header/form, snapshots the booked child price and occurrence,
+    and provides checkout, cart, browse and Book more tickets actions.
 15. Event galleries use full-width, uncropped media with dot navigation on desktop;
     standard product galleries retain desktop thumbnail navigation.
 
@@ -123,3 +142,113 @@ and session duration instead of guessing a selected session.
 - **Image Rendering Errors**: If product images fail to load, the image slots handle fallback behavior
 - **JSON-LD Errors**: If structured data generation fails, falls back to basic meta tags
 - **Fallback Behavior**: Always falls back to appropriate mode based on URL parameters and cart state
+
+### Paid event prototype presentation
+
+Event products with a positive final Commerce price use a wide information column
+and narrower, always-open **Book tickets** panel. Event information follows the
+DOM order: title, local date/time and venue address, gallery (with Save), booking,
+descriptions and attributes, then Event details. On desktop the booking panel
+occupies the second column. Free events share this information layout and retain
+their booking accordion; ordinary products keep their existing presentation.
+
+The paid form starts at zero tickets. Its native row steppers display zero for
+inactive allocations and enforce the current session/inventory limit for the
+selected allocation. Attendees, booking contact and explicit consent appear after
+quantity selection. Attendee drafts survive quantity decreases
+and increases; allocation/session changes reset them. Child products are loaded in
+one `getProductsData` batch, and only the currently selected allocation's price is
+used for its ticket row and subtotal. Loading, missing or failed pricing disables
+submission. Stale selections cannot overwrite the current price.
+
+The non-collapsible ticket subtotal states that the final total is shown at
+checkout. On sufficiently tall desktop screens, the panel scrolls internally and
+its summary/actions remain sticky; smaller screens retain normal document flow.
+Focus scrolls fields into view above the footer. No fees, tax or payable grand
+total are estimated.
+
+Success replaces the form with the booked event, allocation/session, attendee
+names and ticket subtotal, plus the payment reminder and checkout/cart/browse
+links. **Book more tickets** restores the zero-ticket form. The success snapshot
+and attendee/contact data stay in page memory; failures retain entered values.
+Intent schemas, request identifiers, cart correlation and retry recovery are
+unchanged.
+
+Verification: `node test/browser/paid-event-smoke.mjs` uses the local server on
+port 3000 and Chrome debugging on port 9222. It covers deterministic booking
+states and the real PDP decorator/batch API with read-only mocked responses.
+
+### Event breadcrumbs
+
+Breadcrumb typography, slash separators and spacing follow the prototype. Category
+labels and destinations come from Commerce `products.categories` (`name`, `slug`,
+`level`, and `parents`), queried for the parent PDP SKU. The installed PDP model
+omits this context, so a small asynchronous query loads it without blocking the
+booking form. Category slugs become localized storefront paths via `rootLink`.
+For multiple assignments, the deepest category is used, with slug order as a stable
+tie-breaker; its parents are shown in hierarchy order. Missing or failed category
+responses leave **Home / Event title**. No category label or route is hardcoded.
+
+Event page breadcrumbs have 24px of space below the site header. The title uses
+the ProductHeader `hideSku` prop; the parent Commerce SKU appears as **Event code**
+in Event details. The details section follows the prototype's borderless heading
+and ruled definition rows (date/time, combined venue/address, available age and
+organiser, event code, and available tags). Unsupported prototype fields such as
+gates-open information are omitted.
+
+The summary under the title uses the prototype's blue calendar/location icons,
+17px text and wrapping fact layout. Dates use full local calendar names and compact
+lowercase times, collapsing repeated dates for single-day events. Recurring events
+retain their actual calendar bounds and available local hours. The venue summary
+uses backend venue name and city; the full address and timezone remain in Event
+details.
+
+Grouped child pricing also handles Catalog Service returning HTTP 200 with no
+products for direct child-SKU lookups. The pricing batch includes the parent SKU
+and requests raw results (`getProductsData(items, true)`) to preserve its option
+products. A direct child price is preferred; otherwise the selected allocation's
+exact child SKU is matched in the parent's option values. The parent's aggregate
+price range is never used as a ticket price. Missing child pricing still disables
+submission. Rejected pricing requests can be retried on allocation selection.
+
+Ticket details display a skeleton inside the booking panel during the Event App
+request; ticket pricing has its own loading placeholder.
+
+Paid recurring events use a calendar-first flow: choose Date, then Start time,
+then an available Space/Zone and quantity. Nothing is selected automatically.
+The calendar starts at today in the event timezone or the recurrence start date,
+whichever is later, and ends at the recurrence end date. Excluded dates and
+unscheduled weekdays do not trigger availability requests.
+
+Each date requests `getAvailability(eventId, { from: date, to: date })` across all
+spaces. Future occurrences with positive capacity are grouped by their UTC start
+and end interval for the time choices. Selecting a space resolves that interval
+back to its exact backend occurrence ID and capacity; no shared session ID is
+submitted. Spaces absent from that session are hidden. Child Commerce pricing
+continues to determine the ticket price and subtotal.
+
+Date/time changes reset the space, quantity, attendee drafts and pending request
+identifiers while retaining booking contact fields. In-flight date requests are
+shared, late responses are ignored, and revisiting a date fetches fresh inventory.
+Loading, empty and failure states keep submission disabled; failures offer
+**Retry loading times**. The renderer receives `onDateChange` and
+`onSessionChange` callbacks and accepts results through `setSessionAvailability`.
+Free recurring events retain their allocation-first selectors and existing
+availability methods. One-time events retain their existing booking flow.
+
+
+
+### Prototype booking states
+
+The paid panel has a compact date/start-time subtitle and a Choose your tickets
+section. Backend allocation names replace prototype-only ticket types. Ticket
+cards under Who’s going use 46px inputs and keep names when quantity decreases and
+increases within the same allocation/session. Contact and consent remain explicit.
+The zero-ticket footer omits checkout notes and totals; the selected state shows
+only the authoritative ticket subtotal, with the final total deferred to checkout.
+No fee, GST, eligibility note or unverified support number is introduced.
+
+Success uses a white card, green check and grey summary box; checkout is the primary
+action, cart is outlined, and browse/Book more tickets are text actions. Its snapshot
+is captured before the form resets. Screenshots of all three states are produced
+by the paid-event browser regression in scratch/test-results/paid-event/.

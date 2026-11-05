@@ -11,6 +11,10 @@ import {
   normalizePublicEvent,
 } from './models.js';
 
+const ENRICH_CACHE_TTL = 30000;
+const enrichedEventsCache = new Map();
+const enrichRequests = new Map();
+
 function appendQueryValue(searchParams, key, value) {
   if (Array.isArray(value)) {
     value.forEach((entry) => searchParams.append(key, entry));
@@ -103,11 +107,37 @@ export function createEventAppClient(config = getEventAppConfig()) {
     },
 
     async enrich(externalEventIds) {
-      const uniqueIds = [...new Set(externalEventIds)];
-      const response = await request(config, 'enrich', {
-        external_event_ids: uniqueIds,
+      const uniqueIds = [...new Set(externalEventIds)].sort();
+      const action = requireEventAppAction(config, 'enrich');
+      const now = Date.now();
+      const cached = new Map();
+      const missing = uniqueIds.filter((eventId) => {
+        const entry = enrichedEventsCache.get(`${action.url}:${eventId}`);
+        if (!entry || entry.expiresAt <= now) return true;
+        cached.set(eventId, entry.event);
+        return false;
       });
-      return normalizeEventMap(response?.events, uniqueIds);
+      if (!missing.length) return cached;
+
+      const key = `${action.url}:${missing.join('|')}`;
+      let pending = enrichRequests.get(key);
+      if (!pending) {
+        pending = request(config, 'enrich', {
+          external_event_ids: missing,
+        }).then((response) => normalizeEventMap(response?.events, missing));
+        enrichRequests.set(key, pending);
+        pending.finally(() => {
+          if (enrichRequests.get(key) === pending) enrichRequests.delete(key);
+        }).catch(() => {});
+      }
+      const fresh = await pending;
+      fresh.forEach((event, eventId) => {
+        enrichedEventsCache.set(`${action.url}:${eventId}`, {
+          event,
+          expiresAt: Date.now() + ENRICH_CACHE_TTL,
+        });
+      });
+      return new Map([...cached, ...fresh]);
     },
 
     async getEvent(externalEventId) {

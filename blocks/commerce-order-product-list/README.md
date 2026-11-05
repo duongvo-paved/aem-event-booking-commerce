@@ -33,6 +33,7 @@ No events are emitted by this block. -->
 ### Page Context Detection
 
 - **Order Context**: When used in order-related pages, displays products from order data
+- **Customer Order Details**: Uses the shared All orders row design and subscribes to the installed order drop-in's `order/data` event. Adapts historical product names, images, order metadata, and quantities to the shared renderer, with public event metadata supplying venue/date/calendar details when available. Non-event lines omit ticket information. Item prices, product options, and read-only gift details remain visible; there is no link back to the current order page.
 - **All Contexts**: Consistently renders product list regardless of page context
 
 ### User Interaction Flows

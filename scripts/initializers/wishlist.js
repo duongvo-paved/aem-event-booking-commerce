@@ -14,6 +14,10 @@ await initializeDropin(async () => {
   const langDefinitions = {
     default: {
       ...labels,
+      ProductItem: {
+        ...labels.ProductItem,
+        CustomizeActionButton: 'View event',
+      },
     },
   };
 

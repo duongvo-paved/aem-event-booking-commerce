@@ -15,7 +15,6 @@ import OrderSummary from '@dropins/storefront-cart/containers/OrderSummary.js';
 import EstimateShipping from '@dropins/storefront-cart/containers/EstimateShipping.js';
 import Coupons from '@dropins/storefront-cart/containers/Coupons.js';
 import GiftCards from '@dropins/storefront-cart/containers/GiftCards.js';
-import GiftOptions from '@dropins/storefront-cart/containers/GiftOptions.js';
 import { render as wishlistRender } from '@dropins/storefront-wishlist/render.js';
 import { WishlistToggle } from '@dropins/storefront-wishlist/containers/WishlistToggle.js';
 import { WishlistAlert } from '@dropins/storefront-wishlist/containers/WishlistAlert.js';
@@ -41,6 +40,8 @@ import {
 } from '../../scripts/commerce.js';
 import { createEventAppClient } from '../../scripts/event-app/client.js';
 import { getEventCartLines } from '../../scripts/event-app/cart.js';
+import { isEventProduct } from '../../scripts/event-app/models.js';
+import { createCartProductLinkResolver } from '../../scripts/event-app/cart-product-links.js';
 import {
   createEventCartRemovalController,
   createEventItemRemoveAction,
@@ -57,7 +58,6 @@ export default async function decorate(block) {
     'hide-heading': hideHeading = 'false',
     'max-items': maxItems,
     'hide-attributes': hideAttributes = '',
-    'enable-item-quantity-update': enableUpdateItemQuantity = 'false',
     'enable-item-remove': enableRemoveItem = 'true',
     'enable-estimate-shipping': enableEstimateShipping = 'false',
     'start-shopping-url': startShoppingURL = '',
@@ -91,7 +91,6 @@ export default async function decorate(block) {
       </div>
       <div class="cart__right-column">
         <div class="cart__order-summary"></div>
-        <div class="cart__gift-options"></div>
       </div>
     </div>
 
@@ -103,7 +102,6 @@ export default async function decorate(block) {
   const $list = fragment.querySelector('.cart__list');
   const $summary = fragment.querySelector('.cart__order-summary');
   const $emptyCart = fragment.querySelector('.cart__empty-cart');
-  const $giftOptions = fragment.querySelector('.cart__gift-options');
   const $rightColumn = fragment.querySelector('.cart__right-column');
   const $crossSells = document.createElement('div');
   $crossSells.className = 'cart__cross-sells';
@@ -133,24 +131,68 @@ export default async function decorate(block) {
   const eventItemRemoveAction = createEventItemRemoveAction({
     controller: removalController,
     label: placeholders?.Global?.CartRemoveItem || 'Remove',
-    renderIcon: (container) => UI.render(Icon, {
-      'aria-hidden': 'true',
-      size: '32',
-      source: 'Trash',
-    })(container),
+    variant: 'text',
+    eventOnly: false,
   });
 
   block.innerHTML = '';
+  const cartTitle = placeholders?.Global?.CartPageHeading || 'Your cart';
+  const breadcrumbs = document.createElement('nav');
+  breadcrumbs.className = 'cart__breadcrumbs';
+  breadcrumbs.setAttribute('aria-label', placeholders?.Global?.BreadcrumbNavigationLabel || 'Breadcrumb');
+  const trail = document.createElement('ol');
+  [
+    [placeholders?.Global?.BreadcrumbHomeLabel || 'Home', rootLink('/')],
+    [cartTitle, null],
+  ].forEach(([label, href]) => {
+    const item = document.createElement('li');
+    if (trail.children.length) {
+      const separator = document.createElement('span');
+      separator.setAttribute('aria-hidden', 'true');
+      separator.textContent = '/';
+      item.append(separator);
+    }
+    const element = document.createElement(href ? 'a' : 'span');
+    element.textContent = label;
+    if (href) element.href = href;
+    else element.setAttribute('aria-current', 'page');
+    item.append(element);
+    trail.append(item);
+  });
+  breadcrumbs.append(trail);
+  block.append(breadcrumbs);
+  if (hideHeading !== 'true') {
+    const heading = document.createElement('h1');
+    heading.className = 'cart__heading';
+    heading.textContent = cartTitle;
+    block.append(heading);
+  }
   block.appendChild(fragment);
+
+  const emptyHeading = document.createElement('h1');
+  emptyHeading.className = 'cart__empty-heading';
+  emptyHeading.textContent = placeholders?.Global?.CartEmptyHeading || 'Your cart is empty';
+  const emptyMessage = document.createElement('p');
+  emptyMessage.className = 'cart__empty-message';
+  emptyMessage.textContent = placeholders?.Global?.CartEmptyMessage
+    || 'Nothing here yet. Find something to do and your tickets will show up in this cart.';
+  const browseEvents = document.createElement('a');
+  browseEvents.className = 'cart__browse-events';
+  browseEvents.href = rootLink(startShoppingURL || '/events');
+  browseEvents.textContent = placeholders?.Global?.CartBrowseEvents || 'Browse events';
+  $emptyCart.append(emptyHeading, emptyMessage, browseEvents);
 
   // Wishlist variables
   const routeToWishlist = rootLink('/wishlist');
 
   // Toggle Empty Cart
-  function toggleEmptyCart(_state) {
-    $wrapper.removeAttribute('hidden');
-    $emptyCart.setAttribute('hidden', '');
+  function toggleEmptyCart(isEmpty) {
+    $wrapper.hidden = isEmpty;
+    $emptyCart.hidden = !isEmpty;
+    const heading = block.querySelector('.cart__heading');
+    if (heading) heading.hidden = isEmpty;
   }
+  toggleEmptyCart(isCartEmpty(_cart));
 
   // Handle Edit Button Click
   async function handleEditButtonClick(cartItem) {
@@ -226,27 +268,42 @@ export default async function decorate(block) {
   }
 
   // Render Containers
-  const createProductLink = (product) => getProductLink(product.url.urlKey, product.topLevelSku);
+  const productLinks = createCartProductLinkResolver({ catalog: CS_FETCH_GRAPHQL, getProductLink });
+  const createProductLink = productLinks.routeProduct;
   await Promise.all([
     // Cart List
     provider.render(CartSummaryList, {
-      hideHeading: hideHeading === 'true',
+      hideHeading: true,
       routeProduct: createProductLink,
       routeEmptyCartCTA: startShoppingURL ? () => rootLink(startShoppingURL) : undefined,
       maxItems: parseInt(maxItems, 10) || undefined,
       attributesToHide: hideAttributes
         .split(',')
         .map((attr) => attr.trim().toLowerCase()),
-      enableUpdateItemQuantity: enableUpdateItemQuantity === 'true',
+      enableUpdateItemQuantity: false,
       enableRemoveItem: enableRemoveItem === 'true',
       undo: undo === 'true',
       slots: {
-        ItemRemoveAction: eventItemRemoveAction,
+        ItemRemoveAction: (ctx) => {
+          const placeholder = document.createElement('span');
+          placeholder.hidden = true;
+          ctx.replaceWith(placeholder);
+        },
         ProductAttributes: bookingPresenter.ProductAttributes,
+        ItemTitle: (ctx) => {
+          if (!isEventProduct({ attributes: ctx.item.productAttributes })) return;
+          const heading = document.createElement('h2');
+          heading.className = 'event-cart-item__title';
+          const link = document.createElement('a');
+          productLinks.bind(link, ctx.item);
+          link.textContent = ctx.item.name;
+          heading.append(link);
+          ctx.replaceWith(heading);
+        },
         Thumbnail: (ctx) => {
           const { item, defaultImageProps } = ctx;
           const anchorWrapper = document.createElement('a');
-          anchorWrapper.href = createProductLink(item);
+          productLinks.bind(anchorWrapper, item);
 
           tryRenderAemAssetsImage(ctx, {
             alias: item.sku,
@@ -261,6 +318,9 @@ export default async function decorate(block) {
         },
 
         Footer: (ctx) => {
+          const actions = document.createElement('div');
+          actions.className = 'cart__item-actions';
+
           // Edit Link
           if (ctx.item?.itemType === 'ConfigurableCartItem' && enableUpdatingProduct === 'true') {
             const editLink = document.createElement('div');
@@ -274,7 +334,7 @@ export default async function decorate(block) {
               onClick: () => handleEditButtonClick(ctx.item),
             })(editLink);
 
-            ctx.appendChild(editLink);
+            actions.append(editLink);
           }
 
           // Wishlist Button (if product is not configurable)
@@ -284,29 +344,19 @@ export default async function decorate(block) {
           wishlistRender.render(WishlistToggle, {
             product: ctx.item,
             size: 'medium',
-            labelToWishlist: placeholders?.Global?.CartMoveToWishlist,
-            labelWishlisted: placeholders?.Global?.CartRemoveFromWishlist,
+            labelToWishlist: placeholders?.Global?.CartSaveForLater || 'Save for later',
+            labelWishlisted: placeholders?.Global?.CartRemoveFromWishlist || 'Remove from saved events',
             removeProdFromCart: Cart.updateProductsFromCart,
           })($wishlistToggle);
 
-          ctx.appendChild($wishlistToggle);
-
-          // Gift Options
-          const giftOptions = document.createElement('div');
-
-          provider.render(GiftOptions, {
-            item: ctx.item,
-            view: 'product',
-            dataSource: 'cart',
-            handleItemsLoading: ctx.handleItemsLoading,
-            handleItemsError: ctx.handleItemsError,
-            onItemUpdate: ctx.onItemUpdate,
-            slots: {
-              SwatchImage: swatchImageSlot,
-            },
-          })(giftOptions);
-
-          ctx.appendChild(giftOptions);
+          actions.append($wishlistToggle);
+          if (enableRemoveItem === 'true') {
+            eventItemRemoveAction({
+              ...ctx,
+              replaceWith: (button) => actions.append(button),
+            });
+          }
+          ctx.appendChild(actions);
         },
       },
     })($list),
@@ -340,14 +390,6 @@ export default async function decorate(block) {
       },
     })($summary),
 
-    provider.render(GiftOptions, {
-      view: 'order',
-      dataSource: 'cart',
-
-      slots: {
-        SwatchImage: swatchImageSlot,
-      },
-    })($giftOptions),
   ]);
 
   const CROSS_SELL_QUERY = `
@@ -540,7 +582,6 @@ export default async function decorate(block) {
       loadCrossSells(cartData);
 
       const isEmpty = !cartData || cartData.totalQuantity < 1;
-      $giftOptions.style.display = isEmpty ? 'none' : '';
       $rightColumn.style.display = isEmpty ? 'none' : '';
 
       if (!cartViewEventPublished) {
@@ -568,18 +609,4 @@ export default async function decorate(block) {
 
 function isCartEmpty(cart) {
   return cart ? cart.totalQuantity < 1 : true;
-}
-
-function swatchImageSlot(ctx) {
-  const { imageSwatchContext, defaultImageProps } = ctx;
-  tryRenderAemAssetsImage(ctx, {
-    alias: imageSwatchContext.label,
-    imageProps: defaultImageProps,
-    wrapper: document.createElement('span'),
-
-    params: {
-      width: defaultImageProps.width,
-      height: defaultImageProps.height,
-    },
-  });
 }

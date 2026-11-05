@@ -4,7 +4,8 @@
  * the storefront-product-discovery dropin does not touch the URL.
  */
 
-const HIDDEN_FILTER_ATTRIBUTES = new Set(['categoryPath', 'inStock', 'visibility']);
+// Discard unsupported legacy preset dates as well as storefront-owned filters.
+const HIDDEN_FILTER_ATTRIBUTES = new Set(['categoryPath', 'inStock', 'visibility', 'event_date']);
 
 /**
  * Parses the sort query param into the search API format.
@@ -14,9 +15,11 @@ const HIDDEN_FILTER_ATTRIBUTES = new Set(['categoryPath', 'inStock', 'visibility
 function parseSort(sortParam) {
   if (!sortParam) return [];
   return sortParam.split(',').map((item) => {
-    const [attribute, direction] = item.split('_');
+    const separator = item.lastIndexOf('_');
+    const attribute = item.slice(0, separator);
+    const direction = item.slice(separator + 1);
     return { attribute, direction };
-  });
+  }).filter((item) => item.attribute && ['ASC', 'DESC'].includes(item.direction));
 }
 
 /**
@@ -28,8 +31,8 @@ function parseSort(sortParam) {
 function parseFilter(filterParam) {
   if (!filterParam) return [];
 
-  const decodedParam = decodeURIComponent(filterParam);
-  const rawFilters = decodedParam.split('|');
+  // URLSearchParams already decoded the value; decoding again corrupts literal % values.
+  const rawFilters = filterParam.split('|');
   /** @type {Array<{ attribute: string, in?: string[], range?: { from: number, to: number } }>} */
   const results = [];
 
@@ -40,8 +43,9 @@ function parseFilter(filterParam) {
     const value = segment.slice(colonIdx + 1).trim();
     if (!attribute || !value) return;
 
-    if (value.includes('-')) {
-      const [from, to] = value.split('-');
+    const numericRange = /^(-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)$/.exec(value);
+    if (numericRange) {
+      const [, from, to] = numericRange;
       const fromNum = Number(from);
       const toNum = Number(to);
       if (Number.isFinite(fromNum) && Number.isFinite(toNum)) {
@@ -129,8 +133,9 @@ export function getSearchStateFromUrl(url) {
  *   Search request from the discovery API; only set params are written to the URL.
  */
 export function applySearchStateToUrl(url, request) {
-  if (request?.phrase) {
-    url.searchParams.set('q', request.phrase);
+  if (request?.phrase != null) {
+    if (request.phrase) url.searchParams.set('q', request.phrase);
+    else url.searchParams.delete('q');
   }
   if (request?.currentPage) {
     url.searchParams.set('page', String(request.currentPage));

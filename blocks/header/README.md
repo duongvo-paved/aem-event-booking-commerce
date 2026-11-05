@@ -68,7 +68,7 @@ The header creates three main sections from the nav fragment:
 
 #### Mini Cart
 1. **Lazy Loading**: Mini cart fragment loads on first interaction or when cart contains items
-2. **Cart Counter**: Displays total quantity badge when items are in cart
+2. **Cart Counter**: Displays total quantity inline as “Cart (2)”, matching the saved-events count. The accessible label includes the count on all screen sizes; visible labels are hidden on smaller screens.
 3. **Panel Toggle**: Click cart button to open/close mini cart panel
 4. **Auto-preload**: If cart data exists, mini cart fragment preloads automatically
 5. **Analytics**: Publishes shopping cart view event when opened
@@ -91,7 +91,10 @@ The header creates three main sections from the nav fragment:
    - Logout revokes token asynchronously, then either redirects to a specific page or reloads the current page
    - Special redirects on logout: checkout → cart, customer pages → login, order details → home
    - All other pages simply reload to reflect the logged-out state
-3. **User Display**: Dropdown shows "Hi, {firstname}" for authenticated users
+3. **User Display**: Dropdown shows "Hi, {firstname}" and a chevron for authenticated users.
+   The compact menu contains “My account” and “Log out”, with prototype styling.
+   Opening it updates the trigger's expanded state and focuses the account link;
+   Escape closes the menu and returns focus to the trigger.
 
 ### State Management
 

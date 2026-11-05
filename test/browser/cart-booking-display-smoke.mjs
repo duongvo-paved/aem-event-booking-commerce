@@ -353,6 +353,11 @@ const desktop = await evaluate(`({
     '.commerce-checkout .order-confirmation__booking-information .event-cart-booking--confirmation',
   )?.getBoundingClientRect().width,
   definitionLists: document.querySelectorAll('.event-cart-booking dl').length,
+  placeholders: [...document.querySelectorAll('.commerce-cart .event-cart-booking__placeholder')]
+    .map((element) => ({
+      label: element.getAttribute('aria-label'),
+      bars: [...element.children].map((bar) => bar.getBoundingClientRect().width),
+    })),
   documentWidth: document.documentElement.scrollWidth,
   headings: [...document.querySelectorAll('.event-cart-booking h3')]
     .map((element) => element.textContent.trim()),
@@ -366,7 +371,8 @@ const desktop = await evaluate(`({
 assert.equal(desktop.commerceCalls, 1);
 assert.equal(desktop.enrichmentCalls, 1);
 assert.equal(desktop.ordinaryProductAppended, false);
-assert.match(desktop.cartText, /Organizer/);
+assert.doesNotMatch(desktop.cartText, /Organizer|Booking linked/);
+assert.match(desktop.cartText, /2 × Tickets/);
 assert.match(desktop.confirmationText, /Adobe Events/);
 assert.match(desktop.confirmationText, /City Hall/);
 assert.match(desktop.confirmationText, /Tickets\s*4/);
@@ -381,17 +387,21 @@ assert.equal(
 );
 assert.doesNotMatch(desktop.miniCartText, /Organizer/);
 assert.match(desktop.cartText, /(?:8 Aug 2026|Aug 8, 2026)/);
-assert.match(desktop.cartText, /Selected date/);
-assert.match(desktop.cartText, /10:00\s*–\s*11:30 \(Australia\/Sydney\)/);
+assert.match(desktop.cartText, /10:00am\s*–\s*11:30am/);
 assert.match(desktop.miniCartText, /(?:8 Aug 2026|Aug 8, 2026)/);
-assert.match(desktop.miniCartText, /Selected date/);
-assert.match(desktop.miniCartText, /10:00\s*–\s*11:30 \(Australia\/Sydney\)/);
+assert.doesNotMatch(desktop.miniCartText, /Booking linked|Organizer/);
+assert.match(desktop.miniCartText, /10:00am\s*–\s*11:30am/);
+assert.match(desktop.miniCartText, /2 × Tickets/);
 assert.doesNotMatch(
   `${desktop.cartText}${desktop.miniCartText}${desktop.confirmationText}`,
   /opaque-(?:recurring-)?intent-must-not-render/,
 );
 assert.equal(desktop.documentWidth <= desktop.viewportWidth, true);
-assert.equal(desktop.definitionLists, 9);
+assert.equal(desktop.definitionLists, 3);
+assert.equal(desktop.placeholders.length, 1);
+assert.match(desktop.placeholders[0].label, /Booking information temporarily unavailable/);
+assert.equal(desktop.placeholders[0].bars.every((width) => width > 0), true);
+assert.doesNotMatch(desktop.cartText, /Booking information temporarily unavailable/);
 assert.equal(desktop.alerts.length, 2);
 await captureScreenshot('cart-booking-display-desktop');
 await evaluate(`document.querySelector('.commerce-checkout')
@@ -413,6 +423,9 @@ const mobile = await evaluate(`({
 assert.equal(mobile.documentWidth <= mobile.viewportWidth, true);
 assert.equal(mobile.panelWidths.every((width) => width <= mobile.viewportWidth), true);
 await captureScreenshot('checkout-success-booking-display-mobile');
+await evaluate(`document.querySelector('.event-cart-booking__placeholder')
+  .scrollIntoView({ block: 'center' })`);
+await captureScreenshot('cart-booking-placeholder-mobile');
 
 const { nodes } = await send('Accessibility.getFullAXTree');
 const accessibility = nodes

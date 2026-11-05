@@ -5,6 +5,39 @@
     margin-bottom: var(--spacing-small);
 }
 
+.account-order-line-items .upcoming-booking__content {
+    margin: 0;
+}
+
+.account-order-line-items .upcoming-booking__actions {
+    margin: 12px 0 0;
+}
+
+.account-order-line-items .upcoming-booking__name a {
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+}
+
 .commerce-order-product-list .dropin-cart-item a:hover {
     text-decoration: none;
+}
+
+.account-order-line-items .order-line-details {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 4px 12px;
+    margin: 12px 0 0;
+    font-size: 14px;
+    line-height: 22px;
+}
+
+.account-order-line-items .order-line-details dt {
+    font-weight: 700;
+}
+
+.account-order-line-items .order-line-details dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
 }

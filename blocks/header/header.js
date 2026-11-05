@@ -14,6 +14,21 @@ const isDesktop = window.matchMedia('(min-width: 900px)');
 
 const labels = await fetchPlaceholders();
 
+function createToolIcon(paths) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '1.8');
+  svg.setAttribute('aria-hidden', 'true');
+  paths.forEach((value) => {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', value);
+    svg.append(path);
+  });
+  return svg;
+}
+
 const overlay = document.createElement('div');
 overlay.classList.add('overlay');
 document.querySelector('header').insertAdjacentElement('afterbegin', overlay);
@@ -55,7 +70,7 @@ function closeOnFocusLost(e) {
 
 function openOnKeydown(e) {
   const focused = document.activeElement;
-  const isNavDrop = focused.className === 'nav-drop';
+  const isNavDrop = focused.classList.contains('nav-drop');
   if (isNavDrop && (e.code === 'Enter' || e.code === 'Space')) {
     const dropExpanded = focused.getAttribute('aria-expanded') === 'true';
     toggleAllNavSections(focused.closest('.nav-sections'));
@@ -191,6 +206,16 @@ export default async function decorate(block) {
     navSections
       .querySelectorAll(':scope .default-content-wrapper > ul > li')
       .forEach((navSection) => {
+        const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+        const currentLink = [...navSection.querySelectorAll('a[href]')].find((link) => (
+          !link.getAttribute('href').startsWith('#')
+          && link.origin === window.location.origin
+          && (link.pathname.replace(/\/$/, '') || '/') === currentPath
+        ));
+        if (currentLink) {
+          currentLink.setAttribute('aria-current', 'page');
+          navSection.classList.add('nav-current');
+        }
         if (navSection.querySelector('ul')) navSection.classList.add('nav-drop');
         setupSubmenu(navSection);
         navSection.addEventListener('click', (event) => {
@@ -226,6 +251,18 @@ export default async function decorate(block) {
   navTools.append(wishlist);
 
   const wishlistButton = navTools.querySelector('.nav-wishlist-button');
+  const savedLabel = document.createElement('span');
+  savedLabel.className = 'nav-tool-label';
+  savedLabel.textContent = 'Saved';
+  wishlistButton.append(createToolIcon([
+    'M12 20s-7-4.35-7-9a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 4.65-7 9-7 9z',
+  ]), savedLabel);
+  wishlistButton.setAttribute('aria-label', 'Saved events');
+  events.on('wishlist/data', (data) => {
+    const count = data?.items_count || 0;
+    savedLabel.textContent = `Saved (${count})`;
+    wishlistButton.setAttribute('aria-label', `Saved events (${count})`);
+  }, { eager: true });
 
   const wishlistMeta = getMetadata('wishlist');
   const wishlistPath = wishlistMeta ? new URL(wishlistMeta, window.location).pathname : '/wishlist';
@@ -249,6 +286,13 @@ export default async function decorate(block) {
   const minicartPanel = navTools.querySelector('.minicart-panel');
 
   const cartButton = navTools.querySelector('.nav-cart-button');
+  const cartLabel = document.createElement('span');
+  cartLabel.className = 'nav-tool-label';
+  cartLabel.textContent = 'Cart';
+  cartButton.append(createToolIcon([
+    'M5 8h14l-1.2 11.2a1.5 1.5 0 0 1-1.5 1.3H7.7a1.5 1.5 0 0 1-1.5-1.3L5 8z',
+    'M9 8V6.2A3 3 0 0 1 15 6.2V8',
+  ]), cartLabel);
 
   if (excludeMiniCartFromPaths.includes(window.location.pathname)) {
     cartButton.style.display = 'none';
@@ -330,11 +374,9 @@ export default async function decorate(block) {
     // preload mini cart fragment if user has a cart
     if (data) loadMiniCartFragment();
 
-    if (data?.totalQuantity) {
-      cartButton.setAttribute('data-count', data.totalQuantity);
-    } else {
-      cartButton.removeAttribute('data-count');
-    }
+    const count = data?.totalQuantity || 0;
+    cartLabel.textContent = `Cart (${count})`;
+    cartButton.setAttribute('aria-label', `Cart (${count})`);
   }, { eager: true });
 
   /** Search */

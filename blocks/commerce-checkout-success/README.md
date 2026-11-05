@@ -18,6 +18,18 @@ No URL parameters are read by this block.
 
 No localStorage keys are used by this block.
 
+### Local development reloads
+
+On `localhost`, `127.0.0.1`, or `[::1]`, placing an order saves the latest
+confirmation (order data and event booking summaries) in this tab's
+`sessionStorage` under `checkout-success-dev`. Refresh the resulting confirmation
+URL repeatedly to work on its presentation without placing another order.
+The snapshot is restored only at the same path and query string. Each new order
+replaces it; closing the tab or running
+`sessionStorage.removeItem('checkout-success-dev')` clears it.
+This development snapshot includes order/customer data; use test orders locally.
+Hosted storefronts do not read or write this snapshot.
+
 ### Dependencies
 
 - `@dropins/storefront-order` (Order containers and initializer)
@@ -46,13 +58,30 @@ await renderCheckoutSuccess(container, { orderData });
 
 ## Behavior
 
+When an event booking snapshot is supplied, confirmation uses booking-focused
+copy and event cards while retaining Commerce's order number, payment status,
+costs and existing guest account offer. Shipping status is hidden only when every
+ordered SKU is included in the supplied event summaries. A Commerce order number
+is never relabeled as a public booking reference.
+
+Each linked event with a product name and valid start/end times offers a native
+`.ics` download. Recurring events require the selected occurrence; the complete
+series is never exported as one booking. Local occurrence times are converted to
+UTC using their timezone. Missing, invalid, nonexistent or ambiguous DST times
+suppress the action. Calendar files contain event title, time and venue only,
+without booking identifiers or attendee/contact data. No calendar service or
+additional network request is used.
+
+Ticket downloads, receipt retrieval and automatic booking/account association
+remain outside this presentation change.
+
 - Scrolls to top on load for proper confirmation visibility.
 - Loads `commerce-checkout-success.css` styles.
 - Fetches localized placeholders and mounts the Order drop-in initializer with `langDefinitions` and optional `orderData`.
 - Renders order confirmation sections (header, status, shipping status, customer details, cost summary, product list, gift options).
 - Footer includes a "Continue shopping" button and a "Contact us" support link (from `SUPPORT_PATH`).
 - Product list integrates read-only Gift Options per item; product and swatch images attempt to use AEM Assets via SKU/label aliasing.
-- Event order items can display an in-memory booking summary with date/time, venue, organizer, ticket quantity, and asynchronous ticket-delivery guidance.
+- Event order items can display a booking summary with date/time, venue, organizer, ticket quantity, and asynchronous ticket-delivery guidance. Summaries stay in memory on hosted storefronts; local development also retains them in the tab as described above.
 - Booking summaries render in a dedicated full-width confirmation section so they are not constrained by the Order drop-in's product-column grid.
 - Booking references, booking contact data, and participant data are never rendered or persisted.
 

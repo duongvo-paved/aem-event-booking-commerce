@@ -180,3 +180,384 @@
     margin-bottom: var(--spacing-xxsmall);
   }
 }
+
+/* Event confirmation presentation; order content and actions stay intact. */
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: none;
+  gap: 32px;
+  max-width: 1240px;
+  margin: 0 auto 64px;
+  padding: 32px 0 0;
+  color: var(--color-brand-700);
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__main,
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__aside {
+  grid-column: 1;
+  min-width: 0;
+  row-gap: 24px;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__event-introduction {
+  grid-column: 1 / -1;
+  position: relative;
+  padding-left: 68px;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__event-introduction::before {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #e3f2e7;
+  content: '';
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__event-introduction::after {
+  position: absolute;
+  top: 18px;
+  left: 20px;
+  width: 10px;
+  height: 17px;
+  border: solid #17803d;
+  border-width: 0 3px 3px 0;
+  transform: rotate(45deg);
+  content: '';
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__event-introduction h1 {
+  margin: 0 0 12px;
+  color: var(--color-brand-700);
+  font: var(--type-display-3-font);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: normal;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__event-introduction p {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--color-neutral-800);
+  overflow-wrap: anywhere;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-header__title,
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-header__icon {
+  display: none;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-header.order-header__card {
+  align-items: start;
+  gap: 16px;
+  padding: 0;
+  text-align: left;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-header__order {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: normal;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-header-create-account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 20px;
+  border: 1px solid var(--color-neutral-400);
+  border-radius: 4px;
+  background: var(--color-neutral-50);
+  text-align: left;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-header-create-account__message {
+  flex: 1 1 220px;
+  margin: 0;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-header-create-account__button {
+  flex: 0 0 auto;
+  margin: 0;
+  border-radius: 4px;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__booking-information-content {
+  gap: 0;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__booking-information-content h2,
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__next-steps h2 {
+  margin: 0 0 20px;
+  color: var(--color-brand-700);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .event-cart-booking--confirmation {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--color-neutral-400);
+  border-radius: 0;
+  background: transparent;
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 18px 20px;
+  padding: 20px 0;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .event-cart-booking--confirmation:last-of-type {
+  border-bottom: 1px solid var(--color-neutral-400);
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .event-cart-booking--confirmation h3 {
+  margin: 0 0 12px;
+  color: var(--color-brand-700);
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  font-size: 18px;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .event-cart-booking--confirmation p {
+  margin: 0 0 16px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .event-cart-booking--confirmation dl {
+  margin: 0;
+  line-height: 1.5;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 6px 10px;
+  font-size: 14px;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .event-cart-booking--confirmation dt {
+  color: var(--color-brand-700);
+  font-weight: 600;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .event-cart-booking--confirmation dd {
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--color-neutral-800);
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .event-calendar-button {
+  min-height: 40px;
+  margin-top: 8px;
+  padding: 0 16px;
+  border: 1px solid #2167c5;
+  border-radius: 3px;
+  background: #fff;
+  color: var(--color-brand-700);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .event-calendar-button:hover {
+  border-color: var(--color-brand-500);
+  background: var(--color-neutral-100);
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .event-calendar-button:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 3px;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__next-steps {
+  padding: 24px 0 0;
+  border: 0;
+  border-top: 1px solid var(--color-neutral-400);
+  border-radius: 0;
+  background: transparent;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__next-steps ol {
+  display: grid;
+  gap: 16px;
+  max-width: 560px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: confirmation-step;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__next-steps li {
+  position: relative;
+  min-height: 28px;
+  padding-left: 40px;
+  color: var(--color-neutral-800);
+  font-size: 16px;
+  line-height: 1.6;
+  counter-increment: confirmation-step;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__next-steps li::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #eaf1f8;
+  color: var(--color-brand-600);
+  font-weight: 700;
+  content: counter(confirmation-step);
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__next-steps a {
+  color: var(--color-brand-500);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .dropin-card {
+  border: 1px solid var(--color-neutral-400);
+  border-radius: 4px;
+  background: var(--color-neutral-50);
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .dropin-card__content {
+  padding: 24px;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .dropin-header-container__title {
+  color: var(--color-brand-700);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .dropin-header-container__divider {
+  height: 1px;
+  margin: 16px 0;
+  border: 0;
+  background: var(--color-neutral-400);
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-cost-summary-content__description--total {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-neutral-400);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__order-cost-summary .dropin-card {
+  box-shadow: 0 2px 8px rgb(0 46 90 / 6%);
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__aside {
+  gap: 20px;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__footer {
+  gap: 20px;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation-footer__contact-support {
+  padding: 20px;
+  border: 1px solid var(--color-neutral-400);
+  border-radius: 4px;
+  color: var(--color-brand-700);
+  text-align: left;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation a.order-confirmation-footer__continue-button {
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 10px 20px;
+  border-radius: 4px;
+}
+
+@media (min-width: 1024px) {
+  :is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation {
+    grid-template-columns: minmax(0, 2.1fr) minmax(300px, 1fr);
+    column-gap: 48px;
+    padding-top: 48px;
+  }
+
+  :is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__aside {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  :is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__main {
+    grid-row: 2;
+  }
+
+  :is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__event-introduction h1 {
+    font-size: 32px;
+  }
+}
+
+/* Ticket rows share the prototype's thumbnail and compact detail layout. */
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__ticket-image {
+  aspect-ratio: 1.55;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #ecf1f5;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__ticket-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__ticket-content {
+  min-width: 0;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .event-calendar-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .event-cart-booking--confirmation dt svg {
+  display: block;
+  width: 16px;
+  height: 20px;
+  color: var(--color-brand-500);
+}
+
+:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .order-confirmation__detail-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (min-width: 600px) {
+  :is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .event-cart-booking--confirmation {
+    grid-template-columns: 130px minmax(0, 1fr);
+  }
+}

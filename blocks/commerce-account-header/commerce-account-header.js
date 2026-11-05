@@ -1,4 +1,3 @@
-import { Header, provider as UI } from '@dropins/tools/components.js';
 import { readBlockConfig } from '../../scripts/aem.js';
 
 export default function decorate(block) {
@@ -6,7 +5,21 @@ export default function decorate(block) {
     title = 'My account',
   } = readBlockConfig(block);
 
-  block.innerHTML = '';
+  const heading = document.createElement('h1');
+  heading.textContent = title;
+  block.replaceChildren(heading);
 
-  return UI.render(Header, { title })(block);
+  const main = block.closest('main');
+  const wrapper = block.closest('.commerce-account-header-wrapper');
+  if (main && wrapper) {
+    main.classList.add('account-page');
+    let titleSection = main.querySelector(':scope > .account-page-title');
+    if (!titleSection) {
+      titleSection = document.createElement('div');
+      titleSection.classList.add('section', 'account-page-title');
+      titleSection.dataset.sectionStatus = 'loaded';
+      main.prepend(titleSection);
+    }
+    titleSection.append(wrapper);
+  }
 }

@@ -20,7 +20,13 @@ import {
   decorateSections,
   IS_UE,
   IS_DA,
+  ORDER_DETAILS_PATH,
+  CUSTOMER_ACCOUNT_PATH,
+  rootLink,
 } from './commerce.js';
+import { getCheckoutSuccess } from './checkout-success-dev.js';
+import { removeAccountReturns } from './account-returns.js';
+import { prepareAccountLoadingPlaceholders } from './account-loading.js';
 
 /**
  * Builds hero block and prepends to main in a new section.
@@ -58,6 +64,14 @@ async function loadFonts() {
  * @param {Element} main The container element
  */
 function buildAutoBlocks(main) {
+  // Recreate the checkout confirmation after a local development reload.
+  if (main === document.querySelector('main')
+    && window.location.pathname === ORDER_DETAILS_PATH && getCheckoutSuccess()) {
+    const section = document.createElement('div');
+    section.append(buildBlock('commerce-checkout-success', ''));
+    main.replaceChildren(section);
+    return;
+  }
   try {
     // auto load `*/fragments/*` references
     const fragments = [...main.querySelectorAll('a[href*="/fragments/"]')].filter((f) => !f.closest('.fragment'));
@@ -127,6 +141,12 @@ function decorateButtons(main) {
  * @param {Element} main The main element
  */
 export function decorateMain(main) {
+  removeAccountReturns(main);
+  prepareAccountLoadingPlaceholders(main);
+  const accountPath = new URL(rootLink(CUSTOMER_ACCOUNT_PATH), window.location.origin).pathname;
+  if (window.location.pathname.replace(/\/$/, '') === accountPath) {
+    main.querySelectorAll('.commerce-addresses').forEach((block) => block.remove());
+  }
   decorateLinks(main);
   decorateIcons(main);
   buildAutoBlocks(main);

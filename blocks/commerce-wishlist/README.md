@@ -4,6 +4,20 @@
 
 The Commerce Wishlist block provides wishlist management functionality using the @dropins/storefront-wishlist Wishlist container. It handles product wishlist operations with authentication modal integration, product data fetching, and cart integration.
 
+The page uses a “Saved events” heading and a live saved-item count. Cards match
+the PLP's bordered layout, centered 8:5 cover images, navy titles and prices,
+rectangular actions, and responsive three/two/one-column grid. Removal controls
+sit over the images. The product configuration link is labeled “View event” and
+continues to open the existing product detail route. Wishlist removal, cart
+actions, sign-in, and empty-state behavior remain owned by the Commerce drop-in.
+
+Saved event cards show the same compact schedule, venue/address, organizer, and
+icons as the PLP. Product details are shared with the drop-in's product loaders,
+and public event details are enriched in one batch per wishlist update. Loading
+and unavailable states leave prices, navigation, and removal available. Enrichment
+is omitted when the Event App is disabled; stale responses from earlier wishlist
+updates are discarded.
+
 ## Integration
 
 ### Block Configuration

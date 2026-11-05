@@ -127,6 +127,7 @@ function installFakeDocument() {
   const previous = globalThis.document;
   globalThis.document = {
     createElement: (tagName) => new FakeElement(tagName),
+    createElementNS: (_namespace, tagName) => new FakeElement(tagName),
     documentElement: { lang: 'en' },
   };
   return () => {
@@ -308,6 +309,26 @@ test('falls back to recurring schedule details for legacy cart lines', () => {
   ]);
 });
 
+test('confirmation combines the selected session and uses the venue address, not organizer', () => {
+  const panel = getCartBookingPanelModel({
+    correlationStatus: 'linked',
+    event: {
+      ...recurringEvent,
+      organizer: 'Different organizer',
+      venue: { name: 'City Hall', address: '1 Main Street, Sydney, AU' },
+    },
+    occurrence,
+    quantity: 1,
+  }, { labels, locale: 'en-AU', surface: 'confirmation' });
+
+  assert.equal(panel.rows[0][0], labels.date);
+  assert.match(panel.rows[0][1], /8 Aug 2026, 10:00am – 11:30am$/);
+  assert.doesNotMatch(panel.rows[0][1], /Australia\/Sydney/);
+  assert.equal(panel.rows.some(([label]) => label === labels.time), false);
+  assert.deepEqual(panel.rows[1], ['Venue', 'City Hall, 1 Main Street, Sydney, AU']);
+  assert.deepEqual(panel.rows[2], ['Organizer', 'Different organizer']);
+});
+
 test('omits organizer rows when event enrichment has no organizer', () => {
   const summary = {
     cartItemUid: 'one',
@@ -370,7 +391,7 @@ test('checkout snapshot enriches in the background and ignores stale responses',
   assert.equal(snapshot.getSummaries()[0].quantity, 3);
 });
 
-test('renders semantic status, warning, and definition-list content without sensitive data', () => {
+test('renders cart warnings and ticket counts without sensitive data', () => {
   const restoreDocument = installFakeDocument();
   try {
     const panel = renderCartBookingPanel({
@@ -384,9 +405,9 @@ test('renders semantic status, warning, and definition-list content without sens
     });
 
     assert.equal(panel.tagName, 'section');
-    assert.equal(panel.children[0].tagName, 'h3');
-    assert.equal(panel.children[1].attributes.get('role'), 'alert');
-    assert.equal(panel.children.at(-1).tagName, 'dl');
+    assert.equal(panel.attributes.get('aria-label'), 'Booking information');
+    assert.equal(panel.children[0].attributes.get('role'), 'alert');
+    assert.equal(panel.children.at(-1).textContent, '1 × Tickets');
     assert.match(panel.textContent, /Remove this item and book the event again/);
     assert.doesNotMatch(
       panel.textContent,
@@ -397,7 +418,76 @@ test('renders semantic status, warning, and definition-list content without sens
   }
 });
 
-test('renders confirmation guidance and a post-purchase support warning', () => {
+test('renders compact cart details using the event timezone without booking status or PII', () => {
+  const restoreDocument = installFakeDocument();
+  try {
+    const panel = renderCartBookingPanel({
+      correlationStatus: 'linked', event, quantity: 2,
+    }, { labels, locale: 'en-AU', surface: 'cart' });
+    assert.match(panel.textContent, /Thu,? 20 Aug 2026, 4:00pm – 6:00pm/);
+    assert.match(panel.textContent, /City Hall/);
+    assert.match(panel.textContent, /2 × Tickets/);
+    assert.doesNotMatch(panel.textContent, /Booking linked|Organizer|Adobe Events/);
+    assert.equal(panel.children[0].children[0].attributes.get('aria-hidden'), 'true');
+  } finally {
+    restoreDocument();
+  }
+});
+
+test('cart rows use the selected session and never substitute the recurrence range', () => {
+  const restoreDocument = installFakeDocument();
+  try {
+    const render = (selectedOccurrence) => renderCartBookingPanel({
+      correlationStatus: 'linked', event: recurringEvent, occurrence: selectedOccurrence, quantity: 1,
+    }, { labels, locale: 'en-AU', surface: 'cart' });
+    const selected = render(occurrence);
+    const legacy = render();
+    assert.match(selected.textContent, /Sat,? 8 Aug 2026, 10:00am – 11:30am/);
+    assert.match(legacy.textContent, /Selected date: Not available for this cart item/);
+    assert.doesNotMatch(legacy.textContent, /31 Aug|09:00|18:00/);
+  } finally {
+    restoreDocument();
+  }
+});
+
+test('linked cart rows without enrichment show an accessible placeholder', () => {
+  const restoreDocument = installFakeDocument();
+  try {
+    const panel = renderCartBookingPanel({ correlationStatus: 'linked', quantity: 3 }, {
+      labels, locale: 'en-AU', surface: 'cart',
+    });
+    assert.doesNotMatch(panel.textContent, /Booking information temporarily unavailable/);
+    assert.match(panel.textContent, /3 × Tickets/);
+    assert.equal(panel.children[0].attributes.get('role'), 'status');
+    assert.equal(panel.children[0].attributes.get('aria-label'), labels.unavailable);
+    assert.equal(panel.children[0].children.length, 2);
+  } finally {
+    restoreDocument();
+  }
+});
+
+test('mini-cart uses the same compact details, placeholders, and warnings as the cart', () => {
+  const restoreDocument = installFakeDocument();
+  try {
+    const summaries = [
+      { correlationStatus: 'linked', event, quantity: 2 },
+      { correlationStatus: 'linked', event: recurringEvent, occurrence, quantity: 1 },
+      { correlationStatus: 'linked', event: recurringEvent, quantity: 1 },
+      { correlationStatus: 'unavailable', quantity: 3 },
+      { correlationStatus: 'missing', quantity: 1 },
+    ];
+    summaries.forEach((summary) => {
+      const cart = renderCartBookingPanel(summary, { labels, locale: 'en-AU', surface: 'cart' });
+      const mini = renderCartBookingPanel(summary, { labels, locale: 'en-AU', surface: 'mini-cart' });
+      assert.equal(mini.textContent, cart.textContent);
+      assert.equal(mini.className, 'event-cart-booking event-cart-booking--mini-cart');
+    });
+  } finally {
+    restoreDocument();
+  }
+});
+
+test('omits confirmation preparation copy while retaining post-purchase support warnings', () => {
   const restoreDocument = installFakeDocument();
   try {
     const linkedPanel = renderCartBookingPanel({
@@ -424,7 +514,7 @@ test('renders confirmation guidance and a post-purchase support warning', () => 
 
     assert.match(linkedPanel.textContent, /City Hall/);
     assert.match(linkedPanel.textContent, /Adobe Events/);
-    assert.match(linkedPanel.textContent, /emailed to the address used for this order/);
+    assert.doesNotMatch(linkedPanel.textContent, /being prepared|emailed to the address used for this order/);
     assert.equal(missingPanel.children[1].attributes.get('role'), 'alert');
     assert.match(missingPanel.textContent, /contact support and provide your order number/);
     assert.doesNotMatch(
@@ -506,8 +596,8 @@ test('ignores a stale async response after a newer cart state', async () => {
     oldRequest.resolve([linkedLine('one')]);
     await oldUpdate;
 
-    assert.match(host.textContent, /Tickets2/);
-    assert.doesNotMatch(host.textContent, /Tickets1/);
+    assert.match(host.textContent, /2 × Tickets/);
+    assert.doesNotMatch(host.textContent, /1 × Tickets/);
   } finally {
     restoreDocument();
   }

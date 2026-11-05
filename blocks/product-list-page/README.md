@@ -15,7 +15,29 @@ loaded. It is omitted when Event App enrichment is disabled. Event products
 always route to the PDP instead of adding directly to cart because attendee data,
 allocation selection, and booking-intent creation are required first.
 
+The listing uses a bordered filter sidebar with a Filter heading.
+Applied filters appear as removable chips above the results toolbar, with a
+clear action that preserves the category, stock, and visibility constraints;
+removing one chip preserves the remaining selections. Filters remain available
+when the search has no results. The toolbar shows the current result range and
+the existing Commerce sort choices. Cards use three columns on large screens,
+two on tablets, and one on phones, with wishlist controls over their images.
+Confirmed zero-price event products display a FREE badge and “Free” price text;
+a range starting at zero but ending above zero retains its Commerce price range.
+Missing product images leave a neutral image area. No additional authoring
+configuration is required.
+
+Card schedules use compact dates such as `Sat 12 Sep, 5:00pm – 10:00pm`.
+Multi-day and recurring events show calendar bounds such as
+`Tue 15 Sep – Sat 26 Sep`. Times are calculated in the event timezone without
+printing the timezone label; years are included when a range crosses years.
+
 ## Configuration Options
+
+Date presets are not displayed because the current Live Search setup does not
+support the required event-date filtering. Legacy `event_date` URL filters are
+discarded so saved preset URLs can still load the normal listing. Standard Live
+Search facets, sorting and pagination remain available.
 
 Block configuration is read via `readBlockConfig(block)`.
 
@@ -47,7 +69,7 @@ On load, the block normalizes the URL (e.g. filter format) with `replaceState`. 
 
 #### Event Listeners
 
-- `events.on('search/result', callback, { eager: true })` – Runs before the block re-renders. Updates empty-state class, result count text, and the facets button’s filter count.
+- `events.on('search/result', callback, { eager: true })` – Runs before the block re-renders. Updates the current request, applied-filter chips, clear actions, empty-state class, result range, and the facets button’s filter count.
 - `events.on('search/result', callback, { eager: false })` – Runs after the block is rendered. Writes the search request (phrase, page, sort, filter) to the URL and calls `history.pushState`.
 
 The block does not emit events; it calls the dropin’s `search()` API and reacts to `search/result`.

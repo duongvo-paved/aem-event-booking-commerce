@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Commerce Cart block renders a comprehensive shopping cart interface with product management, order summary, gift options, and wishlist integration. It provides a full-featured cart experience with configurable options for item management, shipping estimation, and checkout flow.
+The Commerce Cart block renders a comprehensive shopping cart interface with product management, order summary and wishlist integration. It provides a full-featured cart experience with configurable options for item management, shipping estimation, and checkout flow.
 
 ## Integration
 
@@ -13,7 +13,7 @@ The Commerce Cart block renders a comprehensive shopping cart interface with pro
 | `hide-heading` | string | `'false'` | Controls whether the cart heading is hidden | No | Changes visibility of cart section heading |
 | `max-items` | string | undefined | Maximum number of items to display in cart | No | Limits the number of cart items shown |
 | `hide-attributes` | string | `''` | Comma-separated list of product attributes to hide | No | Hides specified product attributes from display |
-| `enable-item-quantity-update` | string | `'false'` | Enables quantity update controls for cart items | No | Shows/hides quantity adjustment controls |
+| `enable-item-quantity-update` | string | `'false'` | Legacy setting; quantity selectors are disabled in the full cart | No | Ticket counts remain visible |
 | `enable-item-remove` | string | `'true'` | Enables remove item functionality | No | Shows/hides remove item buttons |
 | `enable-estimate-shipping` | string | `'false'` | Enables shipping estimation functionality | No | Shows/hides shipping estimation section |
 | `start-shopping-url` | string | `''` | URL for "Start Shopping" button when cart is empty | No | Sets destination for empty cart CTA |
@@ -44,17 +44,35 @@ No localStorage keys are used by this block. -->
 
 ### Page Context Detection
 
-- **Empty Cart**: When cart has no items, shows empty cart message with start shopping CTA
+- **Empty Cart**: Shows the left-aligned “Your cart is empty” heading, explanatory
+  text, and a blue “Browse events” link. The destination uses `start-shopping-url`
+  or the events listing. The populated-cart heading, rows, and summary are hidden
+  until items are added. Labels can be localized through `Global.CartEmptyHeading`,
+  `Global.CartEmptyMessage`, and `Global.CartBrowseEvents`.
 - **Populated Cart**: When cart has items, shows full cart interface with product list and order summary
 - **Configurable Products**: When configurable products are present and editing is enabled, shows edit buttons
-- **Gift Options**: Shows gift options section when cart is not empty
 - **Event Tickets**: Appends a read-only booking summary through the
   `CartSummaryList.ProductAttributes` slot. Correlation is joined strictly by cart
   item UID; the opaque intent reference and booking PII are never rendered.
+  Full-cart event rows use compact thumbnails, linked headings, date/venue icons,
+  and a shaded ticket-quantity panel. Prices and discounts remain rendered by
+  Commerce. Recurring rows show the selected session or an explicit unavailable
+  selection; the recurrence range is not presented as the booked session.
+  Attendee names and ticket-type breakdowns are omitted when unavailable.
+  The footer groups Save for later and Remove as text actions. Wishlist behavior
+  still moves the saved item out of the cart; removal retains booking cancellation
+  and retry handling. Edit and gift controls retain their behavior. Quantity
+  selectors are disabled; the read-only ticket count remains visible.
+  The mini-cart shares the compact details with smaller row styling. Confirmation
+  booking panels retain their existing presentation.
+  Event title and thumbnail links resolve grouped children to their catalog
+  parent using exact option membership and the parent's URL key/SKU. One
+  paginated catalog lookup is shared with the mini-cart for the page lifetime;
+  ordinary products and standalone events retain their normal routes.
 
 ### User Interaction Flows
 
-1. **Cart Display**: Block renders cart items, order summary, and gift options based on current cart state
+1. **Cart Display**: Block renders cart items and order summary based on current cart state
 2. **Item Management**: Users can update quantities, remove items, and edit configurable products
 3. **Product Editing**: Clicking edit button opens mini-PDP modal for configurable product updates
 4. **Wishlist Integration**: Users can move items to/from wishlist with confirmation notifications
@@ -70,8 +88,9 @@ No localStorage keys are used by this block. -->
 - **Fallback Behavior**: Always falls back to default configuration values for missing or invalid settings
 - **Event Booking Fallbacks**: A linked line remains linked if event enrichment is
   unavailable. A successful Commerce query with no line correlation displays a
-  remove-and-rebook warning. A failed Commerce query displays a temporary
-  unavailable state and does not disable checkout.
+  remove-and-rebook warning. Unavailable full-cart booking details display two
+  static placeholder bars with an accessible unavailable label and do not disable
+  checkout. Resolved details replace the placeholder automatically.
 
 ### Event Booking Placeholders
 

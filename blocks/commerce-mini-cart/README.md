@@ -1,5 +1,9 @@
 # Commerce Mini Cart Block
 
+Event title and thumbnail links open the associated grouped parent using exact
+Catalog Service option membership. The parent lookup is shared with the full
+cart; ordinary products and standalone events retain their normal routes.
+
 ## Overview
 
 The Commerce Mini Cart block provides a compact cart interface with product management, notifications, and modal integration. It renders a mini cart with configurable options for product editing, undo functionality, and navigation URLs with real-time cart update notifications.
@@ -32,6 +36,7 @@ No localStorage keys are used by this block. -->
 - `events.on('cart/product/updated', callback)` - Listens for product update events to show update message
 - `events.on('cart/data', callback)` - Refreshes the shared event booking
   presenter from the current cart model
+- `events.on('wishlist/alert', callback)` - Shows save-for-later confirmation or errors
 
 <!-- #### Event Emitters
 
@@ -46,8 +51,22 @@ No events are emitted by this block. -->
 - **Configurable Products**: When configurable products are present and editing is enabled, shows edit buttons
 - **Undo Mode**: When undo is enabled, prevents mini cart from closing during remove operations
 - **Event Tickets**: Appends a compact read-only booking summary through the
-  `MiniCart.ProductAttributes` slot. It displays status, schedule, venue, and
-  quantity while omitting organizer and all booking PII/correlation values.
+  `MiniCart.ProductAttributes` slot, sharing the full-cart renderer. Rows use an
+  80 × 56px thumbnail, 16px navy title, date/venue icons, shaded ticket count,
+  and Commerce-rendered subtotal. Recurring items display the selected session;
+  missing selections are explicitly identified. Unavailable details use static
+  placeholders; missing booking links retain an attention warning.
+  The title, event details, and ticket count align in the column beside the image.
+  The price sits directly below the title, with right-aligned actions immediately
+  after the ticket count.
+  A single grey divider follows the heading, with another above the subtotal.
+- **Item Actions**: Save for later and Remove appear as text buttons without
+  icons. Saving retains the full cart's move-to-wishlist behavior; removal retains
+  booking cancellation and retry handling. Configurable-product editing appears
+  beside these actions when enabled. Quantity selectors are disabled.
+- **Wishlist Initialization**: The mini-cart initializes the wishlist itself so
+  saving works without visiting the full cart first. Confirmation and error
+  messages appear inside the panel.
 
 ### User Interaction Flows
 

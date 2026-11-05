@@ -2,51 +2,51 @@ import { Icon, provider as UI } from '@dropins/tools/components.js';
 import { render as accountRenderer } from '@dropins/storefront-account/render.js';
 import { loadFragment } from '../fragment/fragment.js';
 import { CUSTOMER_ORDERS_PATH, rootLink } from '../../scripts/commerce.js';
+import { isAccountReturnLink } from '../../scripts/account-returns.js';
+import { createAccountLoadingPlaceholder, markAccountLoading } from '../../scripts/account-loading.js';
 
 export default async function decorate(block) {
-  const fragment = await loadFragment('/customer/sidebar-fragment');
-  const sidebarItemsConfig = fragment.querySelectorAll('.default-content-wrapper > ol > li');
-  const sidebarItems = Array.from(sidebarItemsConfig).map((item) => {
-    const itemParams = Array.from(item.querySelectorAll('ol > li'));
-    const itemTitle = item.childNodes[0]?.textContent?.trim() || item.querySelector(':scope > p')?.textContent?.trim() || 'Default Title';
-    const itemSubtitle = itemParams[0]?.innerText || '';
-    const itemLink = itemParams[1]?.innerText || rootLink('#');
-    const itemIcon = itemParams[2]?.innerText || 'Placeholder';
-    const itemConfig = {
-      itemTitle,
-      itemSubtitle,
-      itemLink,
-      itemIcon,
-    };
+  const stopLoading = markAccountLoading(
+    block,
+    createAccountLoadingPlaceholder({ rows: 4 }),
+  );
+  try {
+    const fragment = await loadFragment('/customer/sidebar-fragment');
+    const sidebarItemsConfig = fragment.querySelectorAll('.default-content-wrapper > ol > li');
+    const sidebarItems = Array.from(sidebarItemsConfig).map((item) => {
+      const itemParams = Array.from(item.querySelectorAll('ol > li'));
+      const itemTitle = item.childNodes[0]?.textContent?.trim() || item.querySelector(':scope > p')?.textContent?.trim() || 'Default Title';
+      const itemSubtitle = itemParams[0]?.innerText || '';
+      const itemLink = itemParams[1]?.innerText || rootLink('#');
+      const itemIcon = itemParams[2]?.innerText || 'Placeholder';
+      if (isAccountReturnLink(itemLink)) return null;
+      const itemConfig = {
+        itemTitle,
+        itemSubtitle,
+        itemLink,
+        itemIcon,
+      };
 
-    const menuItemEl = document.createElement('a');
-    menuItemEl.classList.add('commerce-account-sidebar-item');
-    menuItemEl.href = rootLink(itemConfig.itemLink);
+      const menuItemEl = document.createElement('a');
+      menuItemEl.classList.add('commerce-account-sidebar-item');
+      menuItemEl.href = rootLink(itemConfig.itemLink);
 
-    const isItemActive = (
-      itemConfig.itemLink === CUSTOMER_ORDERS_PATH
+      const isItemActive = itemConfig.itemLink === CUSTOMER_ORDERS_PATH
         ? window.location.href.includes(CUSTOMER_ORDERS_PATH)
-        : window.location.href.includes(itemConfig.itemLink)
-    );
-    if (isItemActive) {
-      menuItemEl.classList.add('commerce-account-sidebar-item-active');
-    }
+        : window.location.href.includes(itemConfig.itemLink);
+      if (isItemActive) menuItemEl.classList.add('commerce-account-sidebar-item-active');
 
-    const iconEl = createMenuItemIcon(itemConfig.itemIcon);
-    const contentEl = createMenuItemContent(itemConfig.itemTitle, itemConfig.itemSubtitle);
-    const arrowEl = createMenuItemArrow();
+      const iconEl = createMenuItemIcon(itemConfig.itemIcon);
+      const contentEl = createMenuItemContent(itemConfig.itemTitle, itemConfig.itemSubtitle);
+      const arrowEl = createMenuItemArrow();
+      menuItemEl.append(iconEl, contentEl, arrowEl);
+      return menuItemEl;
+    });
 
-    menuItemEl.appendChild(iconEl);
-    menuItemEl.appendChild(contentEl);
-    menuItemEl.appendChild(arrowEl);
-
-    return menuItemEl;
-  });
-
-  block.innerHTML = '';
-  sidebarItems.forEach((el) => {
-    block.appendChild(el);
-  });
+    block.replaceChildren(...sidebarItems.filter(Boolean));
+  } finally {
+    stopLoading();
+  }
 }
 
 function createMenuItemIcon(iconSource) {
