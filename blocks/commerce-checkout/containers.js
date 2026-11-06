@@ -67,7 +67,15 @@ import {
   authPrivacyPolicyConsentSlot,
   fetchPlaceholders,
   rootLink,
+  CS_FETCH_GRAPHQL,
+  getProductLink,
 } from '../../scripts/commerce.js';
+
+import { isEventProduct } from '../../scripts/event-app/models.js';
+import { createCartProductLinkResolver } from '../../scripts/event-app/cart-product-links.js';
+import { createEventAppClient } from '../../scripts/event-app/client.js';
+import { getEventCartLines } from '../../scripts/event-app/cart.js';
+import { createCartBookingPresenter, getCartBookingLabels } from '../../scripts/event-app/cart-display.js';
 
 // Constants
 import {
@@ -481,10 +489,34 @@ export const renderCartSummaryList = async (container) => renderContainer(
   CONTAINERS.CART_SUMMARY_LIST,
   async () => {
     const placeholders = await fetchPlaceholders('placeholders/checkout.json');
+    const globalPlaceholders = await fetchPlaceholders();
+    const eventClient = createEventAppClient();
+    const bookingPresenter = createCartBookingPresenter({
+      enrichEvents: (eventIds) => eventClient.enrich(eventIds),
+      eventBus: events,
+      fetchCartLines: (cartId) => getEventCartLines(cartApi.fetchGraphQl, cartId),
+      labels: getCartBookingLabels(globalPlaceholders),
+      surface: 'mini-cart',
+    });
+    const productLinks = createCartProductLinkResolver({ catalog: CS_FETCH_GRAPHQL, getProductLink });
 
     return CartProvider.render(CartSummaryList, {
       variant: 'secondary',
+      enableRemoveItem: false,
+      enableUpdateItemQuantity: false,
+      routeProduct: productLinks.routeProduct,
       slots: {
+        ProductAttributes: bookingPresenter.ProductAttributes,
+        ItemTitle: (ctx) => {
+          if (!isEventProduct({ attributes: ctx.item.productAttributes })) return;
+          const heading = document.createElement('h3');
+          heading.className = 'event-mini-cart-item__title';
+          const link = document.createElement('a');
+          link.textContent = ctx.item.name;
+          productLinks.bind(link, ctx.item);
+          heading.append(link);
+          ctx.replaceWith(heading);
+        },
         Heading: (headingCtx) => {
           const title = placeholders?.Checkout?.Summary?.heading;
 
