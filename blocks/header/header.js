@@ -1,5 +1,6 @@
 // Drop-in Tools
 import { events } from '@dropins/tools/event-bus.js';
+import { getHeaders } from '@dropins/tools/lib/aem/configs.js';
 
 import { tryRenderAemAssetsImage } from '@dropins/tools/lib/aem/assets.js';
 import { getMetadata } from '../../scripts/aem.js';
@@ -13,6 +14,24 @@ import { renderAuthDropdown } from './renderAuthDropdown.js';
 const isDesktop = window.matchMedia('(min-width: 900px)');
 
 const labels = await fetchPlaceholders();
+
+const WISHLIST_DATA_KEY = 'DROPIN__WISHLIST__WISHLIST__DATA';
+const WISHLIST_ID_COOKIE = 'DROPIN__WISHLIST__WISHLIST-ID';
+
+function getWishlistStorageKeys() {
+  const storeCode = getHeaders('wishlist')?.Store;
+  const storeSuffix = storeCode && storeCode !== 'default' ? `__${storeCode}` : '';
+  return {
+    data: `${WISHLIST_DATA_KEY}${storeSuffix}`,
+    idCookie: `${WISHLIST_ID_COOKIE}${storeSuffix}`,
+  };
+}
+
+function clearWishlistStorage({ data, idCookie }) {
+  localStorage.removeItem(data);
+  sessionStorage.removeItem(data);
+  document.cookie = `${idCookie}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
+}
 
 function createToolIcon(paths) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -258,10 +277,30 @@ export default async function decorate(block) {
     'M12 20s-7-4.35-7-9a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 4.65-7 9-7 9z',
   ]), savedLabel);
   wishlistButton.setAttribute('aria-label', 'Saved events');
-  events.on('wishlist/data', (data) => {
+  const updateWishlistCount = (data) => {
     const count = data?.items_count || 0;
     savedLabel.textContent = `Saved (${count})`;
     wishlistButton.setAttribute('aria-label', `Saved events (${count})`);
+  };
+  events.on('wishlist/data', updateWishlistCount, { eager: true });
+
+  let wasAuthenticated = false;
+  events.on('authenticated', (isAuthenticated) => {
+    if (isAuthenticated === true) {
+      wasAuthenticated = true;
+      return;
+    }
+    if (isAuthenticated !== false) return;
+
+    const storageKeys = getWishlistStorageKeys();
+    const hasPersistedAuthenticatedWishlist = Boolean(
+      sessionStorage.getItem(storageKeys.data),
+    );
+    if (wasAuthenticated || hasPersistedAuthenticatedWishlist) {
+      clearWishlistStorage(storageKeys);
+      updateWishlistCount(null);
+    }
+    wasAuthenticated = false;
   }, { eager: true });
 
   const wishlistMeta = getMetadata('wishlist');

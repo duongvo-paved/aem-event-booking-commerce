@@ -3,6 +3,7 @@ import * as authApi from '@dropins/storefront-auth/api.js';
 import { render as authRenderer } from '@dropins/storefront-auth/render.js';
 import { SignIn } from '@dropins/storefront-auth/containers/SignIn.js';
 import {
+  CUSTOMER_CREATE_ACCOUNT_PATH,
   CUSTOMER_FORGOTPASSWORD_PATH,
   rootLink,
 } from '../../scripts/commerce.js';
@@ -29,7 +30,9 @@ function renderSignIn(element) {
       window.location.reload();
     },
     formSize: 'small',
+    renderSignUpLink: true,
     routeForgotPassword: () => rootLink(CUSTOMER_FORGOTPASSWORD_PATH),
+    routeSignUp: () => rootLink(CUSTOMER_CREATE_ACCOUNT_PATH),
   })(element);
 }
 

@@ -573,6 +573,27 @@ header .nav-search-input .search_autocomplete .popover-container {
   width: 100%;
 }
 
+.dropdown-wrapper.nav-tools-wrapper .nav-auth-menu-panel .auth-sign-in-form.auth-sign-in-form--small .auth-sign-in-form__form__buttons .auth-sign-in-form__form__buttons__combine {
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+.dropdown-wrapper.nav-tools-wrapper .nav-auth-menu-panel .auth-sign-in-form.auth-sign-in-form--small .auth-sign-in-form__form__buttons .auth-sign-in-form__form__buttons__combine > span {
+  display: inline !important;
+  margin: 0 8px;
+  border: 0;
+  font: inherit;
+}
+
+.dropdown-wrapper.nav-tools-wrapper .nav-auth-menu-panel .auth-sign-in-form.auth-sign-in-form--small .auth-sign-in-form__form__buttons .auth-sign-in-form__form__buttons__combine > span::before {
+  content: 'or';
+}
+
+.dropdown-wrapper.nav-tools-wrapper .nav-auth-menu-panel .auth-sign-in-form.auth-sign-in-form--small .auth-sign-in-form__form__buttons .auth-sign-in-form__form__buttons__combine .auth-sign-in-form__button--signup {
+  flex-basis: auto;
+  margin-top: 0;
+}
+
 @media (min-width: 1024px) {
   .dropdown-wrapper.nav-tools-wrapper .nav-auth-menu-panel {
     width: 398px;

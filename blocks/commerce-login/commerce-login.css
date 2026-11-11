@@ -3,3 +3,30 @@ main .commerce-login-container {
     margin: 40px auto;
     width: 100%;
 }
+
+.commerce-login .auth-sign-in-form__form__buttons__combine {
+    justify-content: center;
+    flex-wrap: nowrap;
+}
+
+.commerce-login .auth-sign-in-form__form__buttons {
+    grid-template-columns: 1fr;
+    justify-content: stretch;
+    row-gap: 24px;
+}
+
+.commerce-login .auth-sign-in-form__form__buttons__combine > span {
+    display: inline !important;
+    margin: 0 8px;
+    border: 0;
+    font: inherit;
+}
+
+.commerce-login .auth-sign-in-form__form__buttons__combine > span::before {
+    content: 'or';
+}
+
+.commerce-login .auth-sign-in-form__button--signup {
+    flex-basis: auto !important;
+    margin-top: 0 !important;
+}
