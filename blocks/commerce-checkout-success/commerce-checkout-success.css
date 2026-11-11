@@ -318,10 +318,6 @@
   padding: 20px 0;
 }
 
-:is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .event-cart-booking--confirmation:last-of-type {
-  border-bottom: 1px solid var(--color-neutral-400);
-}
-
 :is(.commerce-checkout, .commerce-checkout-success).event-order-confirmation .event-cart-booking--confirmation h3 {
   margin: 0 0 12px;
   color: var(--color-brand-700);
