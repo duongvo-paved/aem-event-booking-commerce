@@ -1427,7 +1427,7 @@
 }
 
 .block.product-details--paid-event .event-booking__ticket-price {
-  margin: 2px 0 0;
+  margin: 2px 0 0 27px;
   color: #4a4a4a;
   font-size: 16px;
   line-height: 1.4;
@@ -1439,7 +1439,7 @@
 }
 
 .block.product-details--paid-event .event-booking__ticket-availability {
-  margin: 4px 0 0;
+  margin: 4px 0 0 27px;
   color: #9a4a11;
   font-size: 15px;
   font-weight: 600;

@@ -1,4 +1,5 @@
 import { formatEventDateRange, formatEventHeadlineDate } from '../../scripts/event-app/dates.js';
+import { localInstant } from '../../scripts/event-app/calendar.js';
 import {
   EVENT_APP_ERROR_TYPES,
   getSafeErrorMessage,
@@ -22,6 +23,57 @@ function createTextElement(tagName, className, text) {
   element.className = className;
   element.textContent = text;
   return element;
+}
+
+function getLastRecurrenceDate(recurrence) {
+  const excludedDates = new Set(recurrence.excludedDates);
+  const weekdays = new Set(recurrence.weekdays);
+  const date = new Date(`${recurrence.endDate}T12:00:00Z`);
+  const start = Date.parse(`${recurrence.startDate}T12:00:00Z`);
+  while (date.getTime() >= start) {
+    const value = date.toISOString().slice(0, 10);
+    const weekday = date.getUTCDay() || 7;
+    if (weekdays.has(weekday) && !excludedDates.has(value)) return value;
+    date.setUTCDate(date.getUTCDate() - 1);
+  }
+  return null;
+}
+
+function getEventExpiration(event) {
+  if (event.scheduleType !== 'recurring') {
+    const expiration = Date.parse(event.endsAtUtc);
+    return Number.isFinite(expiration) ? expiration : null;
+  }
+
+  const recurrence = event.recurrence;
+  if (!recurrence) return null;
+  const lastDate = getLastRecurrenceDate(recurrence);
+  if (!lastDate) return Number.NEGATIVE_INFINITY;
+  return localInstant(lastDate, recurrence.dailyEndTime, event.timezone);
+}
+
+function isEventExpired(event, now = Date.now()) {
+  const expiration = getEventExpiration(event);
+  if (expiration !== null) return expiration <= now;
+
+  // If a recurring end time falls in an ambiguous DST hour, compare event-local
+  // calendar values so the booking still closes at its published schedule end.
+  if (event.scheduleType !== 'recurring' || !event.recurrence) return false;
+  const lastDate = getLastRecurrenceDate(event.recurrence);
+  if (!lastDate) return true;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: event.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now).map((part) => [part.type, part.value]));
+  const currentDate = `${parts.year}-${parts.month}-${parts.day}`;
+  const currentTime = `${parts.hour}:${parts.minute}`;
+  return currentDate > lastDate
+    || (currentDate === lastDate && currentTime >= event.recurrence.dailyEndTime);
 }
 
 function createCartIcon() {
@@ -931,10 +983,16 @@ export function renderEventBooking({
   const submit = document.createElement('button');
   submit.className = 'button event-booking__submit';
   submit.type = 'submit';
+  const defaultSubmitLabel = getLabel(
+    labels,
+    'EventAddToCartLabel',
+    paid ? 'Add to cart' : 'Add to Cart',
+  );
+  const expiredSubmitLabel = getLabel(labels, 'EventExpiredLabel', 'Event expired');
   const submitLabel = createTextElement(
     'span',
     'event-booking__submit-label',
-    getLabel(labels, 'EventAddToCartLabel', paid ? 'Add to cart' : 'Add to Cart'),
+    defaultSubmitLabel,
   );
   if (!paid) submit.append(createCartIcon());
   submit.append(submitLabel);
@@ -944,13 +1002,18 @@ export function renderEventBooking({
     'event-booking__checkout-note',
     getLabel(labels, 'EventFinalTotalNote', 'Final total is shown at checkout.'),
   );
+  let expirationTimer = null;
 
   updateSubmitDisabled = () => {
     onQuantityLimitChange?.(getQuantityLimit());
-    submit.disabled = submitting || (paid && !selectedPrice) || quantity <= 0
+    const expired = isEventExpired(event);
+    submit.disabled = expired
+      || submitting || (paid && !selectedPrice) || quantity <= 0
       || !selectedAllocation
       || quantity > getQuantityLimit()
       || (event.scheduleType === 'recurring' && !selectedOccurrence);
+    if (expired) submitLabel.textContent = expiredSubmitLabel;
+    else if (!submitting) submitLabel.textContent = defaultSubmitLabel;
     contact.hidden = quantity <= 0;
     attendeesContainer.hidden = quantity <= 0;
     attendeesSection.hidden = quantity <= 0;
@@ -1002,6 +1065,21 @@ export function renderEventBooking({
     }
   };
 
+  const scheduleExpirationUpdate = () => {
+    const expiration = getEventExpiration(event);
+    if (expiration === null || expiration === Number.NEGATIVE_INFINITY) return;
+    const delay = expiration - Date.now();
+    if (delay <= 0) {
+      updateSubmitDisabled();
+      return;
+    }
+    expirationTimer = window.setTimeout(() => {
+      expirationTimer = null;
+      updateSubmitDisabled();
+      if (!isEventExpired(event)) scheduleExpirationUpdate();
+    }, Math.min(delay + 1, 2147483647));
+  };
+
   // Cache one batch request, but only apply its result to the latest selection.
   async function loadSelectedPrice() {
     priceRequestId += 1;
@@ -1050,6 +1128,7 @@ export function renderEventBooking({
   };
 
   updateSubmitDisabled();
+  if (expirationTimer === null) scheduleExpirationUpdate();
 
   const actionButtons = document.createElement('div');
   actionButtons.className = 'event-booking__buttons';
@@ -1276,6 +1355,16 @@ export function renderEventBooking({
 
   form.addEventListener('submit', async (submitEvent) => {
     submitEvent.preventDefault();
+    if (isEventExpired(event)) {
+      updateSubmitDisabled();
+      feedback.textContent = getLabel(
+        labels,
+        'EventExpiredLabel',
+        'This event has ended and can no longer be booked.',
+      );
+      feedback.focus();
+      return;
+    }
     if (submitting || (paid && !selectedPrice)) return;
     clearErrors();
 
@@ -1371,11 +1460,7 @@ export function renderEventBooking({
       form.removeAttribute('aria-busy');
       if (actionsContainer) actionsContainer.inert = false;
       updateSubmitDisabled();
-      setSubmitLabel(getLabel(
-        labels,
-        'EventAddToCartLabel',
-        paid ? 'Add to cart' : 'Add to Cart',
-      ));
+      setSubmitLabel(isEventExpired(event) ? expiredSubmitLabel : defaultSubmitLabel);
     }
 
     if (!successMessage) {
