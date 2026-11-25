@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 /* eslint-disable no-await-in-loop, no-console, no-restricted-syntax */
 
 const DEVTOOLS_URL = 'http://127.0.0.1:9222';
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const SCREENSHOT_DIR = 'scratch/test-results/paid-event';
 
 const head = (await fs.readFile('head.html', 'utf8'))
@@ -227,9 +227,9 @@ await evaluate(`(async () => {
   window.__uiux = await mount({ paid: true, recurring: true });
 })()`);
 await evaluate(`(() => {
-  const date = document.querySelector('#event-occurrence-date');
-  date.value = window.__uiux.event.recurrence.startDate;
-  date.dispatchEvent(new Event('change', {bubbles:true}));
+  document.querySelector('#event-occurrence-date-trigger').click();
+  const date = window.__uiux.event.recurrence.startDate;
+  document.querySelector('[data-date="' + date + '"]').click();
 })()`);
 await waitFor('document.querySelector("#event-occurrence-time").options.length === 2');
 await evaluate(`(() => {
@@ -250,7 +250,7 @@ await evaluate(`(() => {
 await waitFor('window.__uiux.getCalls() === 1');
 assert.equal(await evaluate('window.__uiux.getLastSubmission().occurrence.occurrenceId'), 'session-1');
 await evaluate('document.querySelector(".event-booking__book-again").click()');
-assert.equal(await evaluate('document.querySelector("#event-occurrence-date").value'), '');
+assert.equal(await evaluate('document.querySelectorAll("#event-occurrence-date [aria-pressed=true]").length'), 0);
 assert.equal(await evaluate('document.querySelector(".event-booking__allocations").hidden'), true);
 await evaluate(`(async () => {
   const {default: mount} = await import('/test/browser/fixtures/event-uiux.js');
@@ -430,9 +430,10 @@ async function mountRecurring(options = {}) {
 }
 async function chooseDate(key = 'first') {
   await evaluate(`(() => {
-    const date = document.querySelector('#event-occurrence-date');
-    date.value = window.__pdp.getSessionDates()['${key}'];
-    date.dispatchEvent(new Event('change', {bubbles:true}));
+    const calendar = document.querySelector('#event-occurrence-date-panel');
+    if (calendar.hidden) document.querySelector('#event-occurrence-date-trigger').click();
+    const date = window.__pdp.getSessionDates()['${key}'];
+    document.querySelector('[data-date="' + date + '"]').click();
   })()`);
 }
 async function chooseTime(index = 1) {
@@ -450,12 +451,19 @@ await captureScreenshot('ticket-detail-loading');
 await evaluate('window.__pdp.releaseDetails()');
 await waitFor('document.querySelector("#event-occurrence-date") !== null');
 assert.equal(await evaluate('window.__pdp.getAvailabilityRequests().length'), 0);
-assert.equal(await evaluate('document.querySelector("#event-occurrence-date").value'), '');
+assert.equal(await evaluate('document.querySelectorAll("#event-occurrence-date [aria-pressed=true]").length'), 0);
 assert.equal(await evaluate('document.querySelector(".event-booking__allocations").hidden'), true);
+assert.equal(await evaluate(`(() => {
+  const dates = window.__pdp.getSessionDates();
+  const dayBeforeStart = new Date(Date.parse(dates.first + 'T12:00:00Z') - 86400000)
+    .toISOString().slice(0, 10);
+  return document.querySelector('[data-date="' + dayBeforeStart + '"]').disabled
+    && document.querySelector('[data-date="' + dates.excluded + '"]').disabled;
+})()`), true);
 await chooseDate();
 await chooseDate(); // Duplicate in-flight choices share one request.
 await waitFor('window.__pdp.getAvailabilityRequests().length === 1');
-assert.equal(await evaluate('document.querySelector("#event-occurrence-date").disabled'), false);
+assert.equal(await evaluate('document.querySelector("#event-occurrence-date [aria-pressed=true]").disabled'), false);
 assert.equal(await evaluate('document.querySelector("#event-occurrence-time").disabled'), true);
 await evaluate('window.__pdp.releaseAvailability()');
 await waitFor('document.querySelector("#event-occurrence-time").options.length === 3');
@@ -496,19 +504,21 @@ await evaluate(`(() => {
 assert.equal(await evaluate('document.querySelectorAll(".event-booking__attendee").length'), 4);
 assert.equal(await evaluate('window.__pdp.getAvailabilityRequests().length'), 2);
 await chooseDate('excluded');
-assert.equal(await evaluate('document.querySelector("#event-occurrence-date").getAttribute("aria-invalid")'), 'true');
+assert.equal(await evaluate(`document.querySelector('[data-date="${dates.excluded}"]').disabled`), true);
 assert.equal(await evaluate('window.__pdp.getAvailabilityRequests().length'), 2);
 assert.equal(await evaluate('document.querySelector(".event-booking__allocations").hidden'), true);
-await evaluate(`(() => {
-  const date = document.querySelector('#event-occurrence-date');
-  date.value = '2000-01-01'; date.dispatchEvent(new Event('change', {bubbles:true}));
+const dayBeforeStart = await evaluate(`(() => {
+  const first = window.__pdp.getSessionDates().first;
+  return new Date(Date.parse(first + 'T12:00:00Z') - 86400000).toISOString().slice(0, 10);
 })()`);
+await evaluate(`document.querySelector('[data-date="${dayBeforeStart}"]').click()`);
 assert.equal(await evaluate('window.__pdp.getAvailabilityRequests().length'), 2);
 await mountRecurring({ scheduledWeekdays: [1] });
 const nonMonday = new Date(`${dates.first}T12:00:00Z`).getUTCDay() === 1 ? 'second' : 'first';
 await chooseDate(nonMonday);
 assert.equal(await evaluate('window.__pdp.getAvailabilityRequests().length'), 0);
-assert.equal(await evaluate('document.querySelector("#event-occurrence-date").getAttribute("aria-invalid")'), 'true');
+const nonMondayDate = await evaluate(`window.__pdp.getSessionDates()['${nonMonday}']`);
+assert.equal(await evaluate(`document.querySelector('[data-date="${nonMondayDate}"]').disabled`), true);
 await mountRecurring({ failAvailabilityOnce: true });
 await chooseDate();
 await waitFor('!document.querySelector(".event-booking__availability-retry").hidden');
@@ -526,7 +536,7 @@ await waitFor('window.__pdp.getAvailabilityRequests().length === 2');
 await evaluate('window.__pdp.releaseAvailability()');
 await chooseTime();
 assert.equal(await visibleSpaces(), 1);
-assert.equal(await evaluate('document.querySelector("#event-occurrence-date").value'), dates.second);
+assert.equal(await evaluate('document.querySelector("#event-occurrence-date [aria-pressed=true]").dataset.date'), dates.second);
 await chooseDate();
 await chooseTime();
 assert.equal(await evaluate('window.__pdp.getAvailabilityRequests().length'), 3);
@@ -536,9 +546,9 @@ for (const width of [1440, 768, 390]) {
     width, height: 1000, deviceScaleFactor: 1, mobile: width < 600,
   });
   assert.equal(await evaluate(`(() => {
-    const date = document.querySelector('#event-occurrence-date');
+    const date = document.querySelector('#event-occurrence-date-trigger');
     date.focus();
-    return document.activeElement === date && !!date.labels.length
+    return document.activeElement === date && !!date.getAttribute('aria-label')
       && document.documentElement.scrollWidth <= innerWidth;
   })()`), true);
   await send('Input.dispatchKeyEvent', {

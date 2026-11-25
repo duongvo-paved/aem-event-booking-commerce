@@ -215,10 +215,13 @@ Ticket details display a skeleton inside the booking panel during the Event App
 request; ticket pricing has its own loading placeholder.
 
 Paid recurring events use a calendar-first flow: choose Date, then Start time,
-then an available Space/Zone and quantity. Nothing is selected automatically.
+then an available Space/Zone and quantity. The date control is a dropdown that
+opens the calendar when clicked; choosing a date closes it. Nothing is selected
+automatically.
 The calendar starts at today in the event timezone or the recurrence start date,
-whichever is later, and ends at the recurrence end date. Excluded dates and
-unscheduled weekdays do not trigger availability requests.
+whichever is later, and ends at the recurrence end date. Past dates, excluded
+dates, dates outside those bounds, and unscheduled weekdays are disabled in the
+calendar and do not trigger availability requests.
 
 Each date requests `getAvailability(eventId, { from: date, to: date })` across all
 spaces. Future occurrences with positive capacity are grouped by their UTC start
